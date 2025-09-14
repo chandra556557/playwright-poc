@@ -1,0 +1,76 @@
+# Multi-stage Dockerfile for Playwright testing
+FROM mcr.microsoft.com/playwright:v1.40.0-jammy as base
+
+# Set working directory
+WORKDIR /app
+
+# Install additional system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    zip \
+    unzip \
+    jq \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Allure CLI
+RUN curl -o allure-2.24.0.tgz -Ls https://github.com/allure-framework/allure2/releases/download/2.24.0/allure-2.24.0.tgz \
+    && tar -zxf allure-2.24.0.tgz -C /opt/ \
+    && ln -s /opt/allure-2.24.0/bin/allure /usr/bin/allure \
+    && rm allure-2.24.0.tgz
+
+# Copy package files
+COPY package*.json ./
+
+# Install Node.js dependencies
+RUN npm ci --only=production
+
+# Install Playwright browsers and dependencies
+RUN npx playwright install --with-deps
+
+# Copy application source code
+COPY . .
+
+# Create directories for test results
+RUN mkdir -p test-results allure-results allure-report playwright-report
+
+# Set environment variables
+ENV NODE_ENV=test
+ENV CI=true
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# Expose port for application (if needed)
+EXPOSE 3000
+
+# Health check
+HEALTHCHEK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Default command
+CMD ["npm", "run", "test"]
+
+# Development stage with additional tools
+FROM base as development
+
+# Install development dependencies
+RUN npm ci
+
+# Install additional development tools
+RUN npm install -g nodemon concurrently
+
+# Copy development configuration
+COPY .env.test .env
+
+# Production stage for CI/CD
+FROM base as production
+
+# Copy only production files
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/package*.json ./
+
+# Set production environment
+ENV NODE_ENV=production
+
+# Run tests by default
+CMD ["npm", "run", "test:ci"]

@@ -1,0 +1,194 @@
+{
+  "id": "test-suite-002",
+  "name": "Product Search & Filter",
+  "description": "Test product search functionality, filters, and sorting options on e-commerce platform",
+  "createdAt": "2024-01-16T14:20:00.000Z",
+  "updatedAt": "2024-01-16T14:20:00.000Z",
+  "version": 1,
+  "status": "active",
+  "tags": ["search", "filter", "products", "e-commerce", "functionality"],
+  "browser": "chromium",
+  "baseUrl": "https://demo.opencart.com",
+  "tests": [
+    {
+      "id": "test-004",
+      "name": "Basic Product Search",
+      "description": "Test basic product search functionality",
+      "steps": [
+        {
+          "id": "step-017",
+          "action": "navigate",
+          "target": "https://demo.opencart.com",
+          "description": "Navigate to homepage"
+        },
+        {
+          "id": "step-018",
+          "action": "fill",
+          "target": "input[name='search']",
+          "value": "iPhone",
+          "description": "Enter search term"
+        },
+        {
+          "id": "step-019",
+          "action": "click",
+          "target": "button.btn-default",
+          "description": "Click search button"
+        },
+        {
+          "id": "step-020",
+          "action": "waitForSelector",
+          "target": ".product-thumb",
+          "description": "Wait for search results"
+        },
+        {
+          "id": "step-021",
+          "action": "assert",
+          "target": "h1",
+          "expected": "Search - iPhone",
+          "description": "Verify search results page title"
+        },
+        {
+          "id": "step-022",
+          "action": "assertElementCount",
+          "target": ".product-thumb",
+          "expected": ">0",
+          "description": "Verify search results are displayed"
+        }
+      ]
+    },
+    {
+      "id": "test-005",
+      "name": "Search with No Results",
+      "description": "Test search with term that returns no results",
+      "steps": [
+        {
+          "id": "step-023",
+          "action": "navigate",
+          "target": "https://demo.opencart.com",
+          "description": "Navigate to homepage"
+        },
+        {
+          "id": "step-024",
+          "action": "fill",
+          "target": "input[name='search']",
+          "value": "nonexistentproduct12345",
+          "description": "Enter search term with no results"
+        },
+        {
+          "id": "step-025",
+          "action": "click",
+          "target": "button.btn-default",
+          "description": "Click search button"
+        },
+        {
+          "id": "step-026",
+          "action": "waitForSelector",
+          "target": "#content p",
+          "description": "Wait for no results message"
+        },
+        {
+          "id": "step-027",
+          "action": "assert",
+          "target": "#content p",
+          "expected": "There is no product that matches the search criteria.",
+          "description": "Verify no results message"
+        }
+      ]
+    },
+    {
+      "id": "test-006",
+      "name": "Product Category Filter",
+      "description": "Test filtering products by category",
+      "steps": [
+        {
+          "id": "step-028",
+          "action": "navigate",
+          "target": "https://demo.opencart.com/index.php?route=product/category&path=20",
+          "description": "Navigate to Desktops category"
+        },
+        {
+          "id": "step-029",
+          "action": "waitForSelector",
+          "target": ".product-thumb",
+          "description": "Wait for products to load"
+        },
+        {
+          "id": "step-030",
+          "action": "click",
+          "target": "#list-view",
+          "description": "Switch to list view"
+        },
+        {
+          "id": "step-031",
+          "action": "waitForSelector",
+          "target": ".product-list",
+          "description": "Wait for list view to load"
+        },
+        {
+          "id": "step-032",
+          "action": "assert",
+          "target": "h2",
+          "expected": "Desktops",
+          "description": "Verify category page title"
+        }
+      ]
+    },
+    {
+      "id": "test-007",
+      "name": "Product Sorting",
+      "description": "Test product sorting functionality",
+      "steps": [
+        {
+          "id": "step-033",
+          "action": "navigate",
+          "target": "https://demo.opencart.com/index.php?route=product/category&path=20",
+          "description": "Navigate to Desktops category"
+        },
+        {
+          "id": "step-034",
+          "action": "waitForSelector",
+          "target": "#input-sort",
+          "description": "Wait for sort dropdown"
+        },
+        {
+          "id": "step-035",
+          "action": "select",
+          "target": "#input-sort",
+          "value": "p.price-ASC",
+          "description": "Sort by price low to high"
+        },
+        {
+          "id": "step-036",
+          "action": "waitForSelector",
+          "target": ".product-thumb",
+          "description": "Wait for sorted results"
+        },
+        {
+          "id": "step-037",
+          "action": "assertElementCount",
+          "target": ".product-thumb",
+          "expected": ">0",
+          "description": "Verify products are displayed after sorting"
+        }
+      ]
+    }
+  ],
+  "configuration": {
+    "timeout": 30000,
+    "retries": 1,
+    "headless": true,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "slowMo": 50
+  },
+  "environment": {
+    "name": "staging",
+    "variables": {
+      "BASE_URL": "https://demo.opencart.com",
+      "SEARCH_TERM": "iPhone",
+      "CATEGORY_PATH": "20"
+    }
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "id": "healing-analytics-001",
+  "generatedAt": "2024-01-16T18:00:00.000Z",
+  "period": {
+    "start": "2024-01-01T00:00:00.000Z",
+    "end": "2024-01-16T23:59:59.000Z"
+  },
+  "summary": {
+    "totalFailures": 15,
+    "healedFailures": 12,
+    "healingSuccessRate": 80.0,
+    "commonFailureTypes": [
+      {
+        "type": "ElementNotFound",
+        "count": 8,
+        "percentage": 53.3
+      },
+      {
+        "type": "TimeoutError",
+        "count": 4,
+        "percentage": 26.7
+      },
+      {
+        "type": "SelectorChanged",
+        "count": 2,
+        "percentage": 13.3
+      },
+      {
+        "type": "NetworkError",
+        "count": 1,
+        "percentage": 6.7
+      }
+    ],
+    "healingStrategies": [
+      {
+        "strategy": "alternative_selector",
+        "successCount": 6,
+        "totalAttempts": 8,
+        "successRate": 75.0
+      },
+      {
+        "strategy": "wait_and_retry",
+        "successCount": 4,
+        "totalAttempts": 5,
+        "successRate": 80.0
+      },
+      {
+        "strategy": "text_based_selector",
+        "successCount": 2,
+        "totalAttempts": 3,
+        "successRate": 66.7
+      }
+    ]
+  },
+  "failureAnalysis": [
+    {
+      "id": "failure-001",
+      "executionId": "execution-001",
+      "testId": "test-003",
+      "stepId": "step-015",
+      "timestamp": "2024-01-15T15:32:10.000Z",
+      "failureType": "ElementNotFound",
+      "originalSelector": ".alert-danger",
+      "errorMessage": "Element not found: .alert-danger",
+      "healingAttempts": [
+        {
+          "strategy": "alternative_selector",
+          "suggestedSelector": ".alert.alert-danger",
+          "confidence": 0.85,
+          "result": "success",
+          "appliedAt": "2024-01-15T15:32:15.000Z"
+        }
+      ],
+      "status": "healed",
+      "finalSelector": ".alert.alert-danger"
+    },
+    {
+      "id": "failure-002",
+      "executionId": "execution-003",
+      "testId": "test-008",
+      "stepId": "step-040",
+      "timestamp": "2024-01-14T10:15:30.000Z",
+      "failureType": "TimeoutError",
+      "originalSelector": "#submit-button",
+      "errorMessage": "Timeout waiting for element: #submit-button",
+      "healingAttempts": [
+        {
+          "strategy": "wait_and_retry",
+          "suggestedAction": "increase_timeout",
+          "confidence": 0.70,
+          "result": "success",
+          "appliedAt": "2024-01-14T10:15:45.000Z",
+          "newTimeout": 45000
+        }
+      ],
+      "status": "healed",
+      "finalSelector": "#submit-button"
+    },
+    {
+      "id": "failure-003",
+      "executionId": "execution-004",
+      "testId": "test-009",
+      "stepId": "step-055",
+      "timestamp": "2024-01-13T14:22:18.000Z",
+      "failureType": "SelectorChanged",
+      "originalSelector": "button.btn-primary",
+      "errorMessage": "Element selector has changed",
+      "healingAttempts": [
+        {
+          "strategy": "text_based_selector",
+          "suggestedSelector": "button:has-text('Submit')",
+          "confidence": 0.90,
+          "result": "success",
+          "appliedAt": "2024-01-13T14:22:25.000Z"
+        }
+      ],
+      "status": "healed",
+      "finalSelector": "button:has-text('Submit')"
+    },
+    {
+      "id": "failure-004",
+      "executionId": "execution-005",
+      "testId": "test-010",
+      "stepId": "step-062",
+      "timestamp": "2024-01-12T09:45:12.000Z",
+      "failureType": "NetworkError",
+      "originalSelector": null,
+      "errorMessage": "Network request failed: ERR_CONNECTION_REFUSED",
+      "healingAttempts": [
+        {
+          "strategy": "retry_with_backoff",
+          "suggestedAction": "exponential_backoff",
+          "confidence": 0.60,
+          "result": "failed",
+          "appliedAt": "2024-01-12T09:45:30.000Z",
+          "retryCount": 3
+        }
+      ],
+      "status": "unhealed",
+      "finalSelector": null
+    }
+  ],
+  "recommendations": [
+    {
+      "type": "selector_improvement",
+      "priority": "high",
+      "description": "Consider using more robust selectors for critical elements",
+      "affectedTests": ["test-003", "test-008"],
+      "suggestedActions": [
+        "Use data-testid attributes for better selector stability",
+        "Implement fallback selectors for critical elements",
+        "Add explicit waits before interacting with dynamic elements"
+      ]
+    },
+    {
+      "type": "timeout_optimization",
+      "priority": "medium",
+      "description": "Optimize timeout values based on historical data",
+      "affectedTests": ["test-008"],
+      "suggestedActions": [
+        "Increase default timeout for slow-loading elements",
+        "Implement smart waiting strategies",
+        "Add performance monitoring for page load times"
+      ]
+    },
+    {
+      "type": "network_resilience",
+      "priority": "medium",
+      "description": "Improve network error handling",
+      "affectedTests": ["test-010"],
+      "suggestedActions": [
+        "Implement retry mechanisms for network requests",
+        "Add network condition monitoring",
+        "Consider using mock services for unstable endpoints"
+      ]
+    }
+  ],
+  "trends": {
+    "dailyFailures": [
+      {"date": "2024-01-10", "failures": 2, "healed": 1},
+      {"date": "2024-01-11", "failures": 1, "healed": 1},
+      {"date": "2024-01-12", "failures": 3, "healed": 2},
+      {"date": "2024-01-13", "failures": 2, "healed": 2},
+      {"date": "2024-01-14", "failures": 1, "healed": 1},
+      {"date": "2024-01-15", "failures": 4, "healed": 3},
+      {"date": "2024-01-16", "failures": 2, "healed": 2}
+    ],
+    "healingEffectiveness": {
+      "improving": true,
+      "currentWeekAverage": 82.5,
+      "previousWeekAverage": 75.0,
+      "improvement": 7.5
+    }
+  }
+}

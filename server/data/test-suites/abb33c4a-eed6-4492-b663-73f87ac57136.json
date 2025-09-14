@@ -1,0 +1,18 @@
+{
+  "id": "abb33c4a-eed6-4492-b663-73f87ac57136",
+  "name": "qwert",
+  "description": "hh",
+  "tests": [
+    {
+      "id": "1",
+      "name": "Test Case 1",
+      "url": "https://example.com",
+      "browser": "chromium",
+      "steps": []
+    }
+  ],
+  "createdAt": "2025-09-12T05:29:32.963Z",
+  "status": "draft",
+  "updatedAt": "2025-09-12T05:29:32.963Z",
+  "version": 1
+}

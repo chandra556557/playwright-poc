@@ -1,0 +1,18 @@
+{
+  "id": "9f9a6947-dfb3-4a0d-b3b1-00e0dedb7723",
+  "name": "testing",
+  "description": "test",
+  "tests": [
+    {
+      "id": "1",
+      "name": "Test Case 1",
+      "url": "https://www.blazemeter.com/product-demos",
+      "browser": "chromium",
+      "steps": []
+    }
+  ],
+  "createdAt": "2025-09-11T02:59:19.367Z",
+  "status": "draft",
+  "updatedAt": "2025-09-11T02:59:19.367Z",
+  "version": 1
+}

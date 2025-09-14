@@ -1,0 +1,20 @@
+{
+  "id": "b2b4bbba-4093-4db8-abff-7973eb2070b6",
+  "testSuiteId": "test-suite-001",
+  "startTime": "2025-09-10T17:49:34.050Z",
+  "status": "error",
+  "options": {},
+  "results": [],
+  "summary": {
+    "total": 3,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "healing": 0
+  },
+  "healingActions": [],
+  "screenshots": [],
+  "logs": [],
+  "error": "spawn npx ENOENT",
+  "endTime": "2025-09-10T17:49:34.103Z"
+}

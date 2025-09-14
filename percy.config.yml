@@ -1,0 +1,92 @@
+# Percy Visual Testing Configuration
+version: 2
+
+# Project settings
+project-name: "vite-react-typescript-starter"
+
+# Snapshot configuration
+snapshot:
+  # Base URL for your application
+  base-url: "http://localhost:5173"
+  
+  # Responsive breakpoints for visual testing
+  widths:
+    - 375   # Mobile
+    - 768   # Tablet
+    - 1024  # Desktop
+    - 1440  # Large Desktop
+  
+  # Minimum height for snapshots
+  min-height: 1024
+  
+  # Percy-specific options
+  percy:
+    # Enable JavaScript execution
+    enable-javascript: true
+    
+    # Wait for network idle before taking snapshot
+    network-idle-timeout: 750
+    
+    # CSS to inject for consistent styling
+    css: |
+      /* Hide dynamic elements that change between runs */
+      .timestamp, .current-time, .random-id {
+        visibility: hidden !important;
+      }
+      
+      /* Disable animations for consistent screenshots */
+      *, *::before, *::after {
+        animation-duration: 0s !important;
+        animation-delay: 0s !important;
+        transition-duration: 0s !important;
+        transition-delay: 0s !important;
+      }
+
+# Discovery configuration
+discovery:
+  # Disable automatic discovery
+  disable-cache: false
+  
+  # Network idle timeout
+  network-idle-timeout: 750
+  
+  # Allowed hostnames
+  allowed-hostnames:
+    - "localhost"
+    - "127.0.0.1"
+    - "*.localhost"
+
+# Static site configuration (if needed)
+static-snapshots: false
+
+# Upload configuration
+upload:
+  # Parallel uploads
+  parallel: true
+  
+  # Upload timeout
+  timeout: 600
+
+# Agent configuration
+agent:
+  # Asset discovery
+  asset-discovery:
+    # Network idle timeout
+    network-idle-timeout: 750
+    
+    # Page pool size for parallel processing
+    page-pool-size-min: 1
+    page-pool-size-max: 5
+
+# CLI configuration
+cli:
+  # Default command options
+  snapshot:
+    # Include all snapshots by default
+    include: "**/*"
+    
+    # Exclude patterns
+    exclude:
+      - "**/node_modules/**"
+      - "**/dist/**"
+      - "**/build/**"

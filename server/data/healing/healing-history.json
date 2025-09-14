@@ -1,0 +1,191 @@
+{
+  "healingHistory": [
+    {
+      "id": "healing-001",
+      "timestamp": "2024-01-15T15:32:15.000Z",
+      "executionId": "execution-001",
+      "testId": "test-003",
+      "stepId": "step-015",
+      "failureType": "ElementNotFound",
+      "originalSelector": ".alert-danger",
+      "strategy": "alternative_selector",
+      "suggestedFix": {
+        "type": "selector_replacement",
+        "newSelector": ".alert.alert-danger",
+        "confidence": 0.85,
+        "reasoning": "Found similar element with more specific class combination"
+      },
+      "result": "success",
+      "appliedAutomatically": true,
+      "userFeedback": null
+    },
+    {
+      "id": "healing-002",
+      "timestamp": "2024-01-14T10:15:45.000Z",
+      "executionId": "execution-003",
+      "testId": "test-008",
+      "stepId": "step-040",
+      "failureType": "TimeoutError",
+      "originalSelector": "#submit-button",
+      "strategy": "wait_and_retry",
+      "suggestedFix": {
+        "type": "timeout_adjustment",
+        "newTimeout": 45000,
+        "confidence": 0.70,
+        "reasoning": "Element appears after longer loading time based on network analysis"
+      },
+      "result": "success",
+      "appliedAutomatically": true,
+      "userFeedback": {
+        "rating": "helpful",
+        "comment": "Good suggestion, element was indeed slow to load"
+      }
+    },
+    {
+      "id": "healing-003",
+      "timestamp": "2024-01-13T14:22:25.000Z",
+      "executionId": "execution-004",
+      "testId": "test-009",
+      "stepId": "step-055",
+      "failureType": "SelectorChanged",
+      "originalSelector": "button.btn-primary",
+      "strategy": "text_based_selector",
+      "suggestedFix": {
+        "type": "selector_replacement",
+        "newSelector": "button:has-text('Submit')",
+        "confidence": 0.90,
+        "reasoning": "Text-based selector is more resilient to CSS class changes"
+      },
+      "result": "success",
+      "appliedAutomatically": false,
+      "userFeedback": {
+        "rating": "very_helpful",
+        "comment": "Perfect solution, much more stable selector"
+      }
+    },
+    {
+      "id": "healing-004",
+      "timestamp": "2024-01-12T09:45:30.000Z",
+      "executionId": "execution-005",
+      "testId": "test-010",
+      "stepId": "step-062",
+      "failureType": "NetworkError",
+      "originalSelector": null,
+      "strategy": "retry_with_backoff",
+      "suggestedFix": {
+        "type": "retry_configuration",
+        "retryCount": 3,
+        "backoffStrategy": "exponential",
+        "confidence": 0.60,
+        "reasoning": "Network issues often resolve with retry attempts"
+      },
+      "result": "failed",
+      "appliedAutomatically": true,
+      "userFeedback": {
+        "rating": "not_helpful",
+        "comment": "Network issue persisted, might need different approach"
+      }
+    },
+    {
+      "id": "healing-005",
+      "timestamp": "2024-01-11T16:30:12.000Z",
+      "executionId": "execution-006",
+      "testId": "test-011",
+      "stepId": "step-070",
+      "failureType": "ElementNotFound",
+      "originalSelector": "input[name='username']",
+      "strategy": "alternative_selector",
+      "suggestedFix": {
+        "type": "selector_replacement",
+        "newSelector": "#username",
+        "confidence": 0.95,
+        "reasoning": "Found element with ID attribute, more specific and reliable"
+      },
+      "result": "success",
+      "appliedAutomatically": true,
+      "userFeedback": {
+        "rating": "helpful",
+        "comment": "Good catch, ID selector is indeed more reliable"
+      }
+    },
+    {
+      "id": "healing-006",
+      "timestamp": "2024-01-10T11:45:22.000Z",
+      "executionId": "execution-007",
+      "testId": "test-012",
+      "stepId": "step-085",
+      "failureType": "ElementNotFound",
+      "originalSelector": ".product-item:first-child .add-to-cart",
+      "strategy": "xpath_conversion",
+      "suggestedFix": {
+        "type": "selector_replacement",
+        "newSelector": "//div[contains(@class, 'product-item')][1]//button[contains(@class, 'add-to-cart')]",
+        "confidence": 0.80,
+        "reasoning": "XPath selector provides more flexibility for complex element relationships"
+      },
+      "result": "success",
+      "appliedAutomatically": false,
+      "userFeedback": null
+    },
+    {
+      "id": "healing-007",
+      "timestamp": "2024-01-09T14:20:18.000Z",
+      "executionId": "execution-008",
+      "testId": "test-013",
+      "stepId": "step-092",
+      "failureType": "TimeoutError",
+      "originalSelector": ".loading-spinner",
+      "strategy": "wait_strategy_change",
+      "suggestedFix": {
+        "type": "wait_condition_change",
+        "newCondition": "waitForSelector('.content:not(.loading)', { state: 'visible' })",
+        "confidence": 0.75,
+        "reasoning": "Wait for content to be visible instead of spinner to disappear"
+      },
+      "result": "success",
+      "appliedAutomatically": true,
+      "userFeedback": {
+        "rating": "very_helpful",
+        "comment": "Much better approach, more reliable waiting strategy"
+      }
+    }
+  ],
+  "strategies": {
+    "alternative_selector": {
+      "description": "Find alternative CSS selectors for the same element",
+      "successRate": 0.85,
+      "totalAttempts": 6,
+      "successfulAttempts": 5
+    },
+    "wait_and_retry": {
+      "description": "Increase timeout and retry element interaction",
+      "successRate": 0.80,
+      "totalAttempts": 5,
+      "successfulAttempts": 4
+    },
+    "text_based_selector": {
+      "description": "Use text content to locate elements",
+      "successRate": 0.90,
+      "totalAttempts": 3,
+      "successfulAttempts": 3
+    },
+    "xpath_conversion": {
+      "description": "Convert CSS selectors to XPath for more flexibility",
+      "successRate": 0.75,
+      "totalAttempts": 4,
+      "successfulAttempts": 3
+    },
+    "retry_with_backoff": {
+      "description": "Retry failed operations with exponential backoff",
+      "successRate": 0.40,
+      "totalAttempts": 5,
+      "successfulAttempts": 2
+    },
+    "wait_strategy_change": {
+      "description": "Change waiting strategy for better reliability",
+      "successRate": 0.85,
+      "totalAttempts": 4,
+      "successfulAttempts": 3
+    }
+  }
+}

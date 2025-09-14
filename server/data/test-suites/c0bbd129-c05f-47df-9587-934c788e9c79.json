@@ -1,0 +1,18 @@
+{
+  "id": "c0bbd129-c05f-47df-9587-934c788e9c79",
+  "name": "chandra",
+  "description": "",
+  "tests": [
+    {
+      "id": "1",
+      "name": "Test Case 1",
+      "url": "https://todomvc.com/examples/jquery/",
+      "browser": "chromium",
+      "steps": []
+    }
+  ],
+  "createdAt": "2025-09-10T14:00:23.108Z",
+  "status": "draft",
+  "updatedAt": "2025-09-10T14:00:23.108Z",
+  "version": 1
+}

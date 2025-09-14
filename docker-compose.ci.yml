@@ -1,0 +1,147 @@
+version: '3.8'
+
+services:
+  # Application service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - test-network
+
+  # Playwright test service
+  playwright-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.playwright
+      target: production
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - BASE_URL=http://app:3000
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    volumes:
+      - ./test-results:/app/test-results
+      - ./allure-results:/app/allure-results
+      - ./allure-report:/app/allure-report
+      - ./playwright-report:/app/playwright-report
+    command: >
+      sh -c "
+        echo 'Waiting for application to be ready...'
+        until curl -f http://app:3000/health || curl -f http://app:3000; do
+          echo 'Waiting for app...'
+          sleep 2
+        done
+        echo 'Application is ready, starting tests...'
+        npm run test:ci
+      "
+    networks:
+      - test-network
+
+  # Allure report service
+  allure-report:
+    image: frankescobar/allure-docker-service:2.24.0
+    depends_on:
+      - playwright-tests
+    ports:
+      - "5050:5050"
+    environment:
+      - CHECK_RESULTS_EVERY_SECONDS=3
+      - KEEP_HISTORY=1
+      - KEEP_HISTORY_LATEST=25
+    volumes:
+      - ./allure-results:/app/allure-results
+      - ./allure-report:/app/default-reports
+    networks:
+      - test-network
+
+  # Jenkins agent (for self-hosted runners)
+  jenkins-agent:
+    image: jenkins/inbound-agent:latest
+    environment:
+      - JENKINS_URL=${JENKINS_URL}
+      - JENKINS_SECRET=${JENKINS_SECRET}
+      - JENKINS_AGENT_NAME=${JENKINS_AGENT_NAME}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - jenkins-workspace:/home/jenkins/agent
+    networks:
+      - test-network
+    profiles:
+      - jenkins-agent
+
+  # Database service (if needed for testing)
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+    ports:
+      - "5432:5432"
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+    networks:
+      - test-network
+    profiles:
+      - with-db
+
+  # Redis service (if needed for caching/sessions)
+  test-redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - test-network
+    profiles:
+      - with-redis
+
+networks:
+  test-network:
+    driver: bridge
+
+volumes:
+  jenkins-workspace:
+  test-db-data:
+
+# Override for local development
+# Usage: docker-compose -f docker-compose.ci.yml -f docker-compose.override.yml up
+---
+version: '3.8'
+
+# docker-compose.override.yml content
+services:
+  playwright-tests:
+    build:
+      target: development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run test:watch
+
+  app:
+    build:
+      target: development
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev

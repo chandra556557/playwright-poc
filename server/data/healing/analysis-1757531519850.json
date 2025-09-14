@@ -1,0 +1,22 @@
+[
+  {
+    "failureType": "element-not-found",
+    "originalError": "Element not found",
+    "suggestions": [
+      {
+        "type": "dom-traversal",
+        "strategy": "parent-child",
+        "newSelector": "button[data-testid=\"submit\"] >> visible=true",
+        "description": "Try finding visible child elements",
+        "confidence": 0.6,
+        "implementation": {
+          "locator": "button[data-testid=\"submit\"] >> visible=true",
+          "waitFor": true,
+          "timeout": 15000
+        }
+      }
+    ],
+    "confidence": 0.51,
+    "priority": 10
+  }
+]

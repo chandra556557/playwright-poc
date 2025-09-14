@@ -1,0 +1,18 @@
+{
+  "id": "f7d42ddf-0743-4e10-a13b-99872f12d94c",
+  "name": "testapp1",
+  "description": "project description",
+  "tests": [
+    {
+      "id": "1",
+      "name": "Test Case 1",
+      "url": "https://example.com",
+      "browser": "chromium",
+      "steps": []
+    }
+  ],
+  "createdAt": "2025-09-11T08:36:57.603Z",
+  "status": "draft",
+  "updatedAt": "2025-09-11T08:36:57.603Z",
+  "version": 1
+}

@@ -1,0 +1,138 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.40">
+  <actions/>
+  <description>Playwright Smoke Tests - Quick validation of critical functionality</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.7"/>
+    <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.8">
+      <useBuildBlocker>false</useBuildBlocker>
+      <blockLevel>GLOBAL</blockLevel>
+      <scanQueueFor>DISABLED</scanQueueFor>
+      <blockingJobs></blockingJobs>
+    </hudson.plugins.buildblocker.BuildBlockerProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <hudson.triggers.TimerTrigger>
+          <spec>H/15 * * * *</spec>
+        </hudson.triggers.TimerTrigger>
+        <hudson.triggers.SCMTrigger>
+          <spec>H/5 * * * *</spec>
+          <ignorePostCommitHooks>false</ignorePostCommitHooks>
+        </hudson.triggers.SCMTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty/>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.92">
+    <script>pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.40.0-jammy'
+            args '--user root --privileged'
+        }
+    }
+    
+    environment {
+        NODE_ENV = 'test'
+        CI = 'true'
+        TEST_SUITE = 'smoke'
+        BROWSER = 'chromium'
+        HEADLESS = 'true'
+        PARALLEL_WORKERS = '2'
+        RETRIES = '1'
+    }
+    
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        retry(1)
+        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '50', daysToKeepStr: '30'))
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+                script {
+                    env.BUILD_TIMESTAMP = sh(returnStdout: true, script: 'date +"%Y%m%d_%H%M%S"').trim()
+                }
+            }
+        }
+        
+        stage('Setup') {
+            parallel {
+                stage('Install Dependencies') {
+                    steps {
+                        sh '''
+                            npm ci
+                            npx playwright install --with-deps chromium
+                        '''
+                    }
+                }
+                stage('Environment Check') {
+                    steps {
+                        sh '''
+                            node --version
+                            npm --version
+                            npx playwright --version
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Smoke Tests') {
+            steps {
+                sh '''
+                    npx playwright test \
+                        --project=chromium \
+                        --grep "@smoke" \
+                        --workers=2 \
+                        --retries=1 \
+                        --headed=false \
+                        --reporter=html,junit,allure-playwright
+                '''
+            }
+            post {
+                always {
+                    publishTestResults testResultsPattern: 'test-results/junit.xml'
+                    archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'playwright-report',
+                        reportFiles: 'index.html',
+                        reportName: 'Smoke Test Report'
+                    ])
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            slackSend(
+                channel: '#qa-smoke-tests',
+                color: 'good',
+                message: "✅ Smoke Tests PASSED - Build #${env.BUILD_NUMBER}\nDuration: ${currentBuild.durationString}\nReport: ${env.BUILD_URL}Smoke_Test_Report/"
+            )
+        }
+        failure {
+            slackSend(
+                channel: '#qa-smoke-tests',
+                color: 'danger',
+                message: "❌ Smoke Tests FAILED - Build #${env.BUILD_NUMBER}\nDuration: ${currentBuild.durationString}\nReport: ${env.BUILD_URL}Smoke_Test_Report/"
+            )
+        }
+    }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

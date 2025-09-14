@@ -1,0 +1,205 @@
+{
+  "id": "execution-001",
+  "testSuiteId": "test-suite-001",
+  "testSuiteName": "E-commerce Login Flow",
+  "status": "completed",
+  "startTime": "2024-01-15T15:30:00.000Z",
+  "endTime": "2024-01-15T15:32:45.000Z",
+  "duration": 165000,
+  "browser": "chromium",
+  "environment": "staging",
+  "totalTests": 3,
+  "passedTests": 2,
+  "failedTests": 1,
+  "skippedTests": 0,
+  "results": [
+    {
+      "testId": "test-001",
+      "testName": "Valid Login Test",
+      "status": "passed",
+      "startTime": "2024-01-15T15:30:15.000Z",
+      "endTime": "2024-01-15T15:30:45.000Z",
+      "duration": 30000,
+      "steps": [
+        {
+          "stepId": "step-001",
+          "status": "passed",
+          "duration": 2500,
+          "screenshot": "screenshots/execution-001/step-001.png"
+        },
+        {
+          "stepId": "step-002",
+          "status": "passed",
+          "duration": 1200,
+          "screenshot": "screenshots/execution-001/step-002.png"
+        },
+        {
+          "stepId": "step-003",
+          "status": "passed",
+          "duration": 1100,
+          "screenshot": "screenshots/execution-001/step-003.png"
+        },
+        {
+          "stepId": "step-004",
+          "status": "passed",
+          "duration": 3200,
+          "screenshot": "screenshots/execution-001/step-004.png"
+        },
+        {
+          "stepId": "step-005",
+          "status": "passed",
+          "duration": 5000,
+          "screenshot": "screenshots/execution-001/step-005.png"
+        },
+        {
+          "stepId": "step-006",
+          "status": "passed",
+          "duration": 800,
+          "screenshot": "screenshots/execution-001/step-006.png"
+        }
+      ]
+    },
+    {
+      "testId": "test-002",
+      "testName": "Invalid Email Format Test",
+      "status": "passed",
+      "startTime": "2024-01-15T15:31:00.000Z",
+      "endTime": "2024-01-15T15:31:25.000Z",
+      "duration": 25000,
+      "steps": [
+        {
+          "stepId": "step-007",
+          "status": "passed",
+          "duration": 2200,
+          "screenshot": "screenshots/execution-001/step-007.png"
+        },
+        {
+          "stepId": "step-008",
+          "status": "passed",
+          "duration": 1000,
+          "screenshot": "screenshots/execution-001/step-008.png"
+        },
+        {
+          "stepId": "step-009",
+          "status": "passed",
+          "duration": 950,
+          "screenshot": "screenshots/execution-001/step-009.png"
+        },
+        {
+          "stepId": "step-010",
+          "status": "passed",
+          "duration": 2800,
+          "screenshot": "screenshots/execution-001/step-010.png"
+        },
+        {
+          "stepId": "step-011",
+          "status": "passed",
+          "duration": 4500,
+          "screenshot": "screenshots/execution-001/step-011.png"
+        },
+        {
+          "stepId": "step-012",
+          "status": "passed",
+          "duration": 750,
+          "screenshot": "screenshots/execution-001/step-012.png"
+        }
+      ]
+    },
+    {
+      "testId": "test-003",
+      "testName": "Empty Fields Test",
+      "status": "failed",
+      "startTime": "2024-01-15T15:31:40.000Z",
+      "endTime": "2024-01-15T15:32:45.000Z",
+      "duration": 65000,
+      "error": {
+        "message": "Element not found: .alert-danger",
+        "type": "ElementNotFoundError",
+        "stack": "ElementNotFoundError: Element not found: .alert-danger\n    at Page.waitForSelector (/node_modules/playwright/lib/page.js:1234)\n    at TestRunner.executeStep (/server/services/TestRunner.js:156)"
+      },
+      "steps": [
+        {
+          "stepId": "step-013",
+          "status": "passed",
+          "duration": 2100,
+          "screenshot": "screenshots/execution-001/step-013.png"
+        },
+        {
+          "stepId": "step-014",
+          "status": "passed",
+          "duration": 1500,
+          "screenshot": "screenshots/execution-001/step-014.png"
+        },
+        {
+          "stepId": "step-015",
+          "status": "failed",
+          "duration": 30000,
+          "error": {
+            "message": "Element not found: .alert-danger",
+            "type": "ElementNotFoundError"
+          },
+          "screenshot": "screenshots/execution-001/step-015.png"
+        },
+        {
+          "stepId": "step-016",
+          "status": "skipped",
+          "duration": 0
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "screenshots/execution-001/final-state.png"
+  ],
+  "logs": [
+    {
+      "timestamp": "2024-01-15T15:30:00.000Z",
+      "level": "info",
+      "message": "Starting test execution for suite: E-commerce Login Flow"
+    },
+    {
+      "timestamp": "2024-01-15T15:30:15.000Z",
+      "level": "info",
+      "message": "Starting test: Valid Login Test"
+    },
+    {
+      "timestamp": "2024-01-15T15:30:45.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Valid Login Test"
+    },
+    {
+      "timestamp": "2024-01-15T15:31:00.000Z",
+      "level": "info",
+      "message": "Starting test: Invalid Email Format Test"
+    },
+    {
+      "timestamp": "2024-01-15T15:31:25.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Invalid Email Format Test"
+    },
+    {
+      "timestamp": "2024-01-15T15:31:40.000Z",
+      "level": "info",
+      "message": "Starting test: Empty Fields Test"
+    },
+    {
+      "timestamp": "2024-01-15T15:32:10.000Z",
+      "level": "error",
+      "message": "Element not found: .alert-danger - Timeout after 30000ms"
+    },
+    {
+      "timestamp": "2024-01-15T15:32:45.000Z",
+      "level": "error",
+      "message": "Test failed: Empty Fields Test"
+    }
+  ],
+  "metadata": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "executedBy": "automated-scheduler",
+    "tags": ["authentication", "login", "e-commerce", "critical"]
+  }
+}

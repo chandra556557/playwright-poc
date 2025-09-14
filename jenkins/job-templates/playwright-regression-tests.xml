@@ -1,0 +1,466 @@
+<?xml version='1.1' encoding='UTF-8'?>
+<flow-definition plugin="workflow-job@2.40">
+  <actions/>
+  <description>Playwright Regression Tests - Comprehensive test suite for all browsers</description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.plugins.jira.JiraProjectProperty plugin="jira@3.7"/>
+    <hudson.plugins.buildblocker.BuildBlockerProperty plugin="build-blocker-plugin@1.7.8">
+      <useBuildBlocker>false</useBuildBlocker>
+      <blockLevel>GLOBAL</blockLevel>
+      <scanQueueFor>DISABLED</scanQueueFor>
+      <blockingJobs></blockingJobs>
+    </hudson.plugins.buildblocker.BuildBlockerProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+      <triggers>
+        <hudson.triggers.TimerTrigger>
+          <spec>H 2 * * *</spec>
+        </hudson.triggers.TimerTrigger>
+      </triggers>
+    </org.jenkinsci.plugins.workflow.job.properties.PipelineTriggersJobProperty>
+    <org.jenkinsci.plugins.workflow.job.properties.DisableConcurrentBuildsJobProperty/>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>BROWSER</name>
+          <description>Browser to run tests on</description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>all</string>
+              <string>chromium</string>
+              <string>firefox</string>
+              <string>webkit</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+        <hudson.model.ChoiceParameterDefinition>
+          <name>TEST_ENVIRONMENT</name>
+          <description>Environment to test against</description>
+          <choices class="java.util.Arrays$ArrayList">
+            <a class="string-array">
+              <string>staging</string>
+              <string>production</string>
+              <string>local</string>
+            </a>
+          </choices>
+        </hudson.model.ChoiceParameterDefinition>
+        <hudson.model.BooleanParameterDefinition>
+          <name>INCLUDE_AI_TESTS</name>
+          <description>Include AI-enhanced tests</description>
+          <defaultValue>true</defaultValue>
+        </hudson.model.BooleanParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>PARALLEL_WORKERS</name>
+          <description>Number of parallel workers</description>
+          <defaultValue>4</defaultValue>
+          <trim>false</trim>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition" plugin="workflow-cps@2.92">
+    <script>pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.40.0-jammy'
+            args '--user root --privileged -v /var/run/docker.sock:/var/run/docker.sock'
+        }
+    }
+    
+    environment {
+        NODE_ENV = 'test'
+        CI = 'true'
+        TEST_SUITE = 'regression'
+        HEADLESS = 'true'
+        RETRIES = '2'
+        TIMEOUT = '60000'
+    }
+    
+    options {
+        timeout(time: 2, unit: 'HOURS')
+        retry(1)
+        skipDefaultCheckout()
+        buildDiscarder(logRotator(numToKeepStr: '30', daysToKeepStr: '90'))
+    }
+    
+    stages {
+        stage('Checkout & Setup') {
+            parallel {
+                stage('Checkout Code') {
+                    steps {
+                        checkout scm
+                        script {
+                            env.BUILD_TIMESTAMP = sh(returnStdout: true, script: 'date +"%Y%m%d_%H%M%S"').trim()
+                            env.BASE_URL = getBaseUrl(params.TEST_ENVIRONMENT)
+                        }
+                    }
+                }
+                stage('Environment Info') {
+                    steps {
+                        sh '''
+                            echo "=== Environment Information ==="
+                            echo "Node.js: $(node --version)"
+                            echo "npm: $(npm --version)"
+                            echo "OS: $(uname -a)"
+                            echo "Docker: $(docker --version || echo 'Not available')"
+                            echo "================================"
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                sh '''
+                    echo "Installing Node.js dependencies..."
+                    npm ci
+                    
+                    echo "Installing Playwright browsers..."
+                    if [ "${params.BROWSER}" = "all" ]; then
+                        npx playwright install --with-deps
+                    else
+                        npx playwright install --with-deps ${params.BROWSER}
+                    fi
+                    
+                    echo "Verifying installation..."
+                    npx playwright --version
+                '''
+            }
+        }
+        
+        stage('Lint & Quality Checks') {
+            parallel {
+                stage('ESLint') {
+                    steps {
+                        sh 'npm run lint || true'
+                    }
+                    post {
+                        always {
+                            publishCheckStyleResults pattern: 'eslint-report.xml', canRunOnFailed: true
+                        }
+                    }
+                }
+                stage('TypeScript Check') {
+                    steps {
+                        sh 'npx tsc --noEmit || true'
+                    }
+                }
+                stage('Security Audit') {
+                    steps {
+                        sh 'npm audit --audit-level moderate || true'
+                    }
+                }
+            }
+        }
+        
+        stage('Regression Tests') {
+            matrix {
+                axes {
+                    axis {
+                        name 'BROWSER_TYPE'
+                        values 'chromium', 'firefox', 'webkit'
+                    }
+                }
+                when {
+                    expression { params.BROWSER == 'all' }
+                }
+                stages {
+                    stage('Test Execution') {
+                        steps {
+                            script {
+                                def testCommand = buildRegressionTestCommand(env.BROWSER_TYPE)
+                                sh "${testCommand}"
+                            }
+                        }
+                        post {
+                            always {
+                                archiveArtifacts artifacts: "test-results-${env.BROWSER_TYPE}/**/*", allowEmptyArchive: true
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Single Browser Tests') {
+            when {
+                expression { params.BROWSER != 'all' }
+            }
+            steps {
+                script {
+                    def testCommand = buildRegressionTestCommand(params.BROWSER)
+                    sh "${testCommand}"
+                }
+            }
+        }
+        
+        stage('AI-Enhanced Tests') {
+            when {
+                expression { params.INCLUDE_AI_TESTS == true }
+            }
+            parallel {
+                stage('AI Healing Tests') {
+                    steps {
+                        sh '''
+                            npx playwright test healing-metrics-tracker.spec.js \
+                                --project=${params.BROWSER == "all" ? "chromium" : params.BROWSER} \
+                                --workers=2 \
+                                --retries=1 \
+                                --reporter=html,junit,allure-playwright
+                        '''
+                    }
+                }
+                stage('AI Enhanced Tests') {
+                    steps {
+                        sh '''
+                            npx playwright test blazemeter-ai-enhanced-simple.spec.js \
+                                --project=${params.BROWSER == "all" ? "chromium" : params.BROWSER} \
+                                --workers=2 \
+                                --retries=1 \
+                                --reporter=html,junit,allure-playwright
+                        '''
+                    }
+                }
+            }
+        }
+        
+        stage('Generate Reports') {
+            parallel {
+                stage('Allure Report') {
+                    steps {
+                        sh '''
+                            echo "Generating Allure report..."
+                            npm run allure:generate || echo "Allure generation failed"
+                            
+                            if [ -d "allure-report" ]; then
+                                echo "Allure report generated successfully"
+                                ls -la allure-report/
+                            fi
+                        '''
+                        
+                        publishHTML([
+                            allowMissing: false,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'allure-report',
+                            reportFiles: 'index.html',
+                            reportName: 'Allure Regression Report',
+                            reportTitles: 'Regression Test Results'
+                        ])
+                    }
+                }
+                
+                stage('Playwright Report') {
+                    steps {
+                        publishHTML([
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: 'playwright-report',
+                            reportFiles: 'index.html',
+                            reportName: 'Playwright Regression Report'
+                        ])
+                    }
+                }
+                
+                stage('Test Metrics') {
+                    steps {
+                        script {
+                            generateTestMetrics()
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Publish Results') {
+            steps {
+                publishTestResults testResultsPattern: 'test-results/**/junit.xml'
+                
+                script {
+                    def testSummary = generateTestSummary()
+                    currentBuild.description = testSummary
+                    
+                    // Set build status based on test results
+                    def failureThreshold = 5 // Allow up to 5% failure rate
+                    if (getFailureRate() > failureThreshold) {
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Archive all test artifacts
+            archiveArtifacts artifacts: 'test-results/**/*', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'allure-results/**/*', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'playwright-report/**/*', allowEmptyArchive: true
+            
+            // Clean workspace
+            cleanWs()
+        }
+        
+        success {
+            script {
+                sendRegressionNotification('SUCCESS')
+            }
+        }
+        
+        failure {
+            script {
+                sendRegressionNotification('FAILURE')
+            }
+        }
+        
+        unstable {
+            script {
+                sendRegressionNotification('UNSTABLE')
+            }
+        }
+    }
+}
+
+def getBaseUrl(environment) {
+    switch(environment) {
+        case 'staging':
+            return 'https://staging.example.com'
+        case 'production':
+            return 'https://production.example.com'
+        case 'local':
+        default:
+            return 'http://localhost:3000'
+    }
+}
+
+def buildRegressionTestCommand(browser) {
+    def cmd = "npx playwright test"
+    cmd += " --project=${browser}"
+    cmd += " --grep '@regression'"
+    cmd += " --workers=${params.PARALLEL_WORKERS}"
+    cmd += " --retries=${env.RETRIES}"
+    cmd += " --timeout=${env.TIMEOUT}"
+    cmd += " --headed=false"
+    cmd += " --reporter=html,junit,allure-playwright"
+    cmd += " --output-dir=test-results-${browser}"
+    
+    return cmd
+}
+
+def generateTestMetrics() {
+    sh '''
+        echo "Generating test metrics..."
+        
+        # Create metrics summary
+        cat > test-metrics.json << EOF
+{
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "build": "${BUILD_NUMBER}",
+    "browser": "${params.BROWSER}",
+    "environment": "${params.TEST_ENVIRONMENT}",
+    "workers": "${params.PARALLEL_WORKERS}",
+    "duration": "${BUILD_DURATION:-0}",
+    "includeAiTests": "${params.INCLUDE_AI_TESTS}"
+}
+EOF
+        
+        echo "Test metrics generated"
+    '''
+}
+
+def generateTestSummary() {
+    try {
+        def junitFiles = findFiles(glob: 'test-results/**/junit.xml')
+        if (junitFiles.length == 0) {
+            return "No test results found"
+        }
+        
+        def totalTests = 0
+        def failedTests = 0
+        def errorTests = 0
+        
+        junitFiles.each { file ->
+            def junitResults = readFile(file.path)
+            def testCount = (junitResults =~ /tests="(\d+)"/)
+            def failureCount = (junitResults =~ /failures="(\d+)"/)
+            def errorCount = (junitResults =~ /errors="(\d+)"/)
+            
+            if (testCount) totalTests += testCount[0][1].toInteger()
+            if (failureCount) failedTests += failureCount[0][1].toInteger()
+            if (errorCount) errorTests += errorCount[0][1].toInteger()
+        }
+        
+        def passedTests = totalTests - failedTests - errorTests
+        def successRate = totalTests > 0 ? (passedTests / totalTests * 100).round(1) : 0
+        
+        return "Tests: ${totalTests} | Passed: ${passedTests} | Failed: ${failedTests} | Errors: ${errorTests} | Success: ${successRate}%"
+    } catch (Exception e) {
+        return "Test summary generation failed: ${e.message}"
+    }
+}
+
+def getFailureRate() {
+    try {
+        def junitFiles = findFiles(glob: 'test-results/**/junit.xml')
+        if (junitFiles.length == 0) return 0
+        
+        def totalTests = 0
+        def failedTests = 0
+        
+        junitFiles.each { file ->
+            def junitResults = readFile(file.path)
+            def testCount = (junitResults =~ /tests="(\d+)"/)
+            def failureCount = (junitResults =~ /failures="(\d+)"/)
+            
+            if (testCount) totalTests += testCount[0][1].toInteger()
+            if (failureCount) failedTests += failureCount[0][1].toInteger()
+        }
+        
+        return totalTests > 0 ? (failedTests / totalTests * 100).round(1) : 0
+    } catch (Exception e) {
+        return 0
+    }
+}
+
+def sendRegressionNotification(status) {
+    def color = status == 'SUCCESS' ? 'good' : (status == 'UNSTABLE' ? 'warning' : 'danger')
+    def emoji = status == 'SUCCESS' ? '✅' : (status == 'UNSTABLE' ? '⚠️' : '❌')
+    
+    def message = """
+        ${emoji} Regression Tests ${status}
+        
+        *Build:* ${env.BUILD_NUMBER}
+        *Browser:* ${params.BROWSER}
+        *Environment:* ${params.TEST_ENVIRONMENT}
+        *Duration:* ${currentBuild.durationString}
+        *AI Tests:* ${params.INCLUDE_AI_TESTS ? 'Included' : 'Excluded'}
+        
+        *Reports:*
+        • [Allure Report](${env.BUILD_URL}Allure_Regression_Report/)
+        • [Playwright Report](${env.BUILD_URL}Playwright_Regression_Report/)
+        • [Build Details](${env.BUILD_URL})
+    """.stripIndent()
+    
+    slackSend(
+        channel: '#qa-regression',
+        color: color,
+        message: message
+    )
+    
+    // Send email for failures
+    if (status != 'SUCCESS') {
+        emailext(
+            subject: "Regression Tests ${status} - Build #${env.BUILD_NUMBER}",
+            body: message,
+            to: '${DEFAULT_RECIPIENTS}',
+            attachLog: true
+        )
+    }
+}</script>
+    <sandbox>true</sandbox>
+  </definition>
+  <triggers/>
+  <disabled>false</disabled>
+</flow-definition>

@@ -1,0 +1,18 @@
+{
+  "id": "9ab238c9-3846-403b-ac0d-94cc27513324",
+  "name": "Test Preview Suite",
+  "description": "Testing preview functionality",
+  "tests": [
+    {
+      "browser": "chromium",
+      "url": "https://example.com",
+      "name": "Simple Test",
+      "id": "test-1",
+      "steps": []
+    }
+  ],
+  "createdAt": "2025-09-12T06:46:05.298Z",
+  "status": "draft",
+  "updatedAt": "2025-09-12T06:46:05.298Z",
+  "version": 1
+}

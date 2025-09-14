@@ -1,0 +1,41 @@
+{
+  "id": "fcfdf042-a2d8-4b5a-be63-c6b55b23ce83",
+  "name": "",
+  "description": "",
+  "tests": [
+    {
+      "id": "1",
+      "name": "Test Case 1",
+      "url": "https://example.com",
+      "browser": "chromium",
+      "steps": []
+    },
+    {
+      "id": "1757658503911",
+      "name": "Imported Test - rec_1757",
+      "url": "https://example.com",
+      "browser": "chromium",
+      "steps": [
+        {
+          "id": "1757658509975",
+          "type": "click",
+          "target": "cssid",
+          "value": "testing",
+          "description": "qww",
+          "strategies": [
+            {
+              "name": "manual-step",
+              "locator": "",
+              "description": "Manually added step",
+              "priority": 5
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "createdAt": "2025-09-12T06:29:08.356Z",
+  "status": "draft",
+  "updatedAt": "2025-09-12T06:29:08.356Z",
+  "version": 1
+}

@@ -1,0 +1,156 @@
+{
+  "id": "test-suite-001",
+  "name": "E-commerce Login Flow",
+  "description": "Complete login flow testing for e-commerce platform including validation, error handling, and user authentication",
+  "createdAt": "2024-01-15T10:30:00.000Z",
+  "updatedAt": "2024-01-15T10:30:00.000Z",
+  "version": 1,
+  "status": "active",
+  "tags": ["authentication", "login", "e-commerce", "critical"],
+  "browser": "chromium",
+  "baseUrl": "https://demo.opencart.com",
+  "tests": [
+    {
+      "id": "test-001",
+      "name": "Valid Login Test",
+      "description": "Test successful login with valid credentials",
+      "steps": [
+        {
+          "id": "step-001",
+          "action": "navigate",
+          "target": "https://demo.opencart.com/index.php?route=account/login",
+          "description": "Navigate to login page"
+        },
+        {
+          "id": "step-002",
+          "action": "fill",
+          "target": "#input-email",
+          "value": "test@example.com",
+          "description": "Enter email address"
+        },
+        {
+          "id": "step-003",
+          "action": "fill",
+          "target": "#input-password",
+          "value": "password123",
+          "description": "Enter password"
+        },
+        {
+          "id": "step-004",
+          "action": "click",
+          "target": "input[type='submit']",
+          "description": "Click login button"
+        },
+        {
+          "id": "step-005",
+          "action": "waitForSelector",
+          "target": ".account-info",
+          "description": "Wait for account dashboard to load"
+        },
+        {
+          "id": "step-006",
+          "action": "assert",
+          "target": "h2",
+          "expected": "My Account",
+          "description": "Verify successful login"
+        }
+      ]
+    },
+    {
+      "id": "test-002",
+      "name": "Invalid Email Format Test",
+      "description": "Test login with invalid email format",
+      "steps": [
+        {
+          "id": "step-007",
+          "action": "navigate",
+          "target": "https://demo.opencart.com/index.php?route=account/login",
+          "description": "Navigate to login page"
+        },
+        {
+          "id": "step-008",
+          "action": "fill",
+          "target": "#input-email",
+          "value": "invalid-email",
+          "description": "Enter invalid email format"
+        },
+        {
+          "id": "step-009",
+          "action": "fill",
+          "target": "#input-password",
+          "value": "password123",
+          "description": "Enter password"
+        },
+        {
+          "id": "step-010",
+          "action": "click",
+          "target": "input[type='submit']",
+          "description": "Click login button"
+        },
+        {
+          "id": "step-011",
+          "action": "waitForSelector",
+          "target": ".alert-danger",
+          "description": "Wait for error message"
+        },
+        {
+          "id": "step-012",
+          "action": "assert",
+          "target": ".alert-danger",
+          "expected": "Warning: No match for E-Mail Address and/or Password.",
+          "description": "Verify error message is displayed"
+        }
+      ]
+    },
+    {
+      "id": "test-003",
+      "name": "Empty Fields Test",
+      "description": "Test login with empty email and password fields",
+      "steps": [
+        {
+          "id": "step-013",
+          "action": "navigate",
+          "target": "https://demo.opencart.com/index.php?route=account/login",
+          "description": "Navigate to login page"
+        },
+        {
+          "id": "step-014",
+          "action": "click",
+          "target": "input[type='submit']",
+          "description": "Click login button without entering credentials"
+        },
+        {
+          "id": "step-015",
+          "action": "waitForSelector",
+          "target": ".alert-danger",
+          "description": "Wait for validation error"
+        },
+        {
+          "id": "step-016",
+          "action": "assert",
+          "target": ".alert-danger",
+          "expected": "Warning: No match for E-Mail Address and/or Password.",
+          "description": "Verify validation error is shown"
+        }
+      ]
+    }
+  ],
+  "configuration": {
+    "timeout": 30000,
+    "retries": 2,
+    "headless": true,
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "slowMo": 100
+  },
+  "environment": {
+    "name": "staging",
+    "variables": {
+      "BASE_URL": "https://demo.opencart.com",
+      "TEST_EMAIL": "test@example.com",
+      "TEST_PASSWORD": "password123"
+    }
+  }
+}

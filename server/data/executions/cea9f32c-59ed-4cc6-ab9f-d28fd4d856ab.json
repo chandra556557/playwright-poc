@@ -1,0 +1,20 @@
+{
+  "id": "cea9f32c-59ed-4cc6-ab9f-d28fd4d856ab",
+  "testSuiteId": "9f9a6947-dfb3-4a0d-b3b1-00e0dedb7723",
+  "startTime": "2025-09-11T05:15:33.325Z",
+  "status": "error",
+  "options": {},
+  "results": [],
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "healing": 0
+  },
+  "healingActions": [],
+  "screenshots": [],
+  "logs": [],
+  "error": "spawn npx ENOENT",
+  "endTime": "2025-09-11T05:15:33.715Z"
+}

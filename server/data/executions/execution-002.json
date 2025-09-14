@@ -1,0 +1,242 @@
+{
+  "id": "execution-002",
+  "testSuiteId": "test-suite-002",
+  "testSuiteName": "Product Search & Filter",
+  "status": "completed",
+  "startTime": "2024-01-16T16:45:00.000Z",
+  "endTime": "2024-01-16T16:48:30.000Z",
+  "duration": 210000,
+  "browser": "chromium",
+  "environment": "staging",
+  "totalTests": 4,
+  "passedTests": 4,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "results": [
+    {
+      "testId": "test-004",
+      "testName": "Basic Product Search",
+      "status": "passed",
+      "startTime": "2024-01-16T16:45:15.000Z",
+      "endTime": "2024-01-16T16:45:55.000Z",
+      "duration": 40000,
+      "steps": [
+        {
+          "stepId": "step-017",
+          "status": "passed",
+          "duration": 3200,
+          "screenshot": "screenshots/execution-002/step-017.png"
+        },
+        {
+          "stepId": "step-018",
+          "status": "passed",
+          "duration": 1500,
+          "screenshot": "screenshots/execution-002/step-018.png"
+        },
+        {
+          "stepId": "step-019",
+          "status": "passed",
+          "duration": 2800,
+          "screenshot": "screenshots/execution-002/step-019.png"
+        },
+        {
+          "stepId": "step-020",
+          "status": "passed",
+          "duration": 8500,
+          "screenshot": "screenshots/execution-002/step-020.png"
+        },
+        {
+          "stepId": "step-021",
+          "status": "passed",
+          "duration": 1200,
+          "screenshot": "screenshots/execution-002/step-021.png"
+        },
+        {
+          "stepId": "step-022",
+          "status": "passed",
+          "duration": 900,
+          "screenshot": "screenshots/execution-002/step-022.png"
+        }
+      ]
+    },
+    {
+      "testId": "test-005",
+      "testName": "Search with No Results",
+      "status": "passed",
+      "startTime": "2024-01-16T16:46:10.000Z",
+      "endTime": "2024-01-16T16:46:45.000Z",
+      "duration": 35000,
+      "steps": [
+        {
+          "stepId": "step-023",
+          "status": "passed",
+          "duration": 2900,
+          "screenshot": "screenshots/execution-002/step-023.png"
+        },
+        {
+          "stepId": "step-024",
+          "status": "passed",
+          "duration": 1800,
+          "screenshot": "screenshots/execution-002/step-024.png"
+        },
+        {
+          "stepId": "step-025",
+          "status": "passed",
+          "duration": 3200,
+          "screenshot": "screenshots/execution-002/step-025.png"
+        },
+        {
+          "stepId": "step-026",
+          "status": "passed",
+          "duration": 4500,
+          "screenshot": "screenshots/execution-002/step-026.png"
+        },
+        {
+          "stepId": "step-027",
+          "status": "passed",
+          "duration": 1100,
+          "screenshot": "screenshots/execution-002/step-027.png"
+        }
+      ]
+    },
+    {
+      "testId": "test-006",
+      "testName": "Product Category Filter",
+      "status": "passed",
+      "startTime": "2024-01-16T16:47:00.000Z",
+      "endTime": "2024-01-16T16:47:45.000Z",
+      "duration": 45000,
+      "steps": [
+        {
+          "stepId": "step-028",
+          "status": "passed",
+          "duration": 4200,
+          "screenshot": "screenshots/execution-002/step-028.png"
+        },
+        {
+          "stepId": "step-029",
+          "status": "passed",
+          "duration": 6500,
+          "screenshot": "screenshots/execution-002/step-029.png"
+        },
+        {
+          "stepId": "step-030",
+          "status": "passed",
+          "duration": 2100,
+          "screenshot": "screenshots/execution-002/step-030.png"
+        },
+        {
+          "stepId": "step-031",
+          "status": "passed",
+          "duration": 3800,
+          "screenshot": "screenshots/execution-002/step-031.png"
+        },
+        {
+          "stepId": "step-032",
+          "status": "passed",
+          "duration": 1200,
+          "screenshot": "screenshots/execution-002/step-032.png"
+        }
+      ]
+    },
+    {
+      "testId": "test-007",
+      "testName": "Product Sorting",
+      "status": "passed",
+      "startTime": "2024-01-16T16:48:00.000Z",
+      "endTime": "2024-01-16T16:48:30.000Z",
+      "duration": 30000,
+      "steps": [
+        {
+          "stepId": "step-033",
+          "status": "passed",
+          "duration": 3800,
+          "screenshot": "screenshots/execution-002/step-033.png"
+        },
+        {
+          "stepId": "step-034",
+          "status": "passed",
+          "duration": 2200,
+          "screenshot": "screenshots/execution-002/step-034.png"
+        },
+        {
+          "stepId": "step-035",
+          "status": "passed",
+          "duration": 3500,
+          "screenshot": "screenshots/execution-002/step-035.png"
+        },
+        {
+          "stepId": "step-036",
+          "status": "passed",
+          "duration": 5200,
+          "screenshot": "screenshots/execution-002/step-036.png"
+        },
+        {
+          "stepId": "step-037",
+          "status": "passed",
+          "duration": 1100,
+          "screenshot": "screenshots/execution-002/step-037.png"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    "screenshots/execution-002/final-state.png"
+  ],
+  "logs": [
+    {
+      "timestamp": "2024-01-16T16:45:00.000Z",
+      "level": "info",
+      "message": "Starting test execution for suite: Product Search & Filter"
+    },
+    {
+      "timestamp": "2024-01-16T16:45:15.000Z",
+      "level": "info",
+      "message": "Starting test: Basic Product Search"
+    },
+    {
+      "timestamp": "2024-01-16T16:45:55.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Basic Product Search"
+    },
+    {
+      "timestamp": "2024-01-16T16:46:10.000Z",
+      "level": "info",
+      "message": "Starting test: Search with No Results"
+    },
+    {
+      "timestamp": "2024-01-16T16:46:45.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Search with No Results"
+    },
+    {
+      "timestamp": "2024-01-16T16:47:00.000Z",
+      "level": "info",
+      "message": "Starting test: Product Category Filter"
+    },
+    {
+      "timestamp": "2024-01-16T16:47:45.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Product Category Filter"
+    },
+    {
+      "timestamp": "2024-01-16T16:48:00.000Z",
+      "level": "info",
+      "message": "Starting test: Product Sorting"
+    },
+    {
+      "timestamp": "2024-01-16T16:48:30.000Z",
+      "level": "info",
+      "message": "Test completed successfully: Product Sorting"
+    }
+  ],
+  "metadata": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "viewport": {
+      "width": 1920,
+      "height": 1080
+    },
+    "executedBy": "user-manual",
+    "tags": ["search", "filter", "products", "e-commerce", "functionality"]
+  }
+}
