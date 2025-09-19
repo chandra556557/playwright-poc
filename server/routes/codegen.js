@@ -47,6 +47,49 @@ codegenService.on('recordingStarted', (data) => {
   broadcast({ type: 'recordingStarted', data });
 });
 
+// Run ad-hoc Playwright code without WebSockets
+router.post('/run', async (req, res) => {
+  try {
+    const { code, language = 'javascript', title = 'Ad-hoc Test' } = req.body || {};
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ status: 'error', message: 'code is required' });
+    }
+
+    const testRunner = req.testRunner;
+    if (!testRunner || !testRunner.isReady()) {
+      return res.status(503).json({ status: 'error', message: 'Test runner not ready' });
+    }
+
+    // Simple progress callback that just logs to console
+    const progressCallback = (update) => {
+      console.log('Test execution update:', update);
+    };
+    
+    const executionId = await testRunner.runAdhocCode(
+      code, 
+      { language, title },
+      progressCallback
+    );
+
+    // Get the execution result
+    const execution = await testRunner.getExecution(executionId);
+    
+    // Return the complete result in the response
+    return res.json({ 
+      status: 'success', 
+      executionId,
+      result: execution
+    });
+  } catch (error) {
+    console.error('Error running ad-hoc code:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 codegenService.on('actionsRecorded', (data) => {
   broadcast({ type: 'actionsRecorded', data });
 });

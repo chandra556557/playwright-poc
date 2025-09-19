@@ -104,6 +104,7 @@ export default function HealingCenter() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [timeRange, setTimeRange] = useState('7d');
+  const [maxAttempts, setMaxAttempts] = useState('5');
   const [notifications, setNotifications] = useState([]);
   const wsRef = useRef(null);
 
@@ -167,6 +168,46 @@ export default function HealingCenter() {
               toast.success(`Test healed: ${data.healing.testName}`);
             } else {
               toast.error(`Healing failed: ${data.healing.testName}`);
+            }
+          } else if (data.type === 'healingApplied') {
+            // Backend emits { type: 'healingApplied', data: { testId, result } }
+            const result = data.data?.result;
+            if (result) {
+              const status = result.success ? 'success' : 'failed';
+              const healing = {
+                id: `${data.data.testId}-${Date.now()}`,
+                testName: data.data.testId || 'Test',
+                failureType: result.failureType || 'unknown',
+                originalError: result.error || '',
+                healingStrategy: result.strategy || 'healing',
+                newSelector: result.newSelector || null,
+                status,
+                confidence: typeof result.confidence === 'number' ? result.confidence : 0.7,
+                timestamp: new Date().toISOString(),
+                healingTime: Math.round((result.executionTime || 0) / 100) / 10,
+              } as any;
+              setRealTimeData(prev => ({
+                ...prev,
+                recentHealings: [healing, ...prev.recentHealings.slice(0, 9)],
+                summary: {
+                  ...prev.summary,
+                  totalAttempts: prev.summary.totalAttempts + 1,
+                  successfulHealings: status === 'success' ? prev.summary.successfulHealings + 1 : prev.summary.successfulHealings,
+                  failedHealings: status === 'failed' ? prev.summary.failedHealings + 1 : prev.summary.failedHealings
+                }
+              }));
+            }
+          } else if (data.type === 'testExecution') {
+            // Can optionally reflect live changes to trends/summary based on execution updates
+            const summary = data.data?.summary;
+            if (summary) {
+              setRealTimeData(prev => ({
+                ...prev,
+                summary: {
+                  ...prev.summary,
+                  totalAttempts: typeof summary.healing === 'number' ? summary.healing : prev.summary.totalAttempts
+                }
+              }));
             }
           }
         };
@@ -266,32 +307,80 @@ export default function HealingCenter() {
     }
   };
 
-  // Use real data or fallback to mock data
-  const displayData = healingAnalytics || mockHealingData;
+  // Prefer real data; only use mock if API entirely unavailable
+  const displayData = healingAnalytics ?? null;
   
   // Transform API data to match expected structure
-  const transformedData = {
-    summary: {
-      totalAttempts: displayData.totalHealingAttempts || 0,
-      successfulHealings: displayData.successfulHealings || 0,
-      failedHealings: displayData.failedHealings || 0,
-      successRate: (displayData.healingSuccessRate || 0) * 100,
-      avgHealingTime: (displayData.averageHealingTime || 2500) / 1000,
-      strategiesLearned: displayData.recentActivity?.newStrategiesLearned || 0
-    },
-    recentHealings: Array.isArray(displayData.recentHealings) ? displayData.recentHealings : mockHealingData.recentHealings,
-    healingTrends: Array.isArray(displayData.healingTrends) ? displayData.healingTrends : mockHealingData.healingTrends,
-    failureTypes: displayData.failureTypes || 
-      (displayData.commonFailures ? 
-        Object.entries(displayData.commonFailures).map(([name, value], index) => ({
-          name: name.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          value,
-          color: ['#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981'][index % 5]
-        })) : 
-        mockHealingData.failureTypes
-      ),
-    topStrategies: Array.isArray(displayData.topStrategies) ? displayData.topStrategies : mockHealingData.topStrategies
-  };
+  const transformedData = (() => {
+    if (!displayData) {
+      return {
+        summary: {
+          totalAttempts: 0,
+          successfulHealings: 0,
+          failedHealings: 0,
+          successRate: 0,
+          avgHealingTime: 0,
+          strategiesLearned: 0
+        },
+        recentHealings: [],
+        healingTrends: [],
+        failureTypes: [],
+        topStrategies: []
+      };
+    }
+
+    // Build Recent Healings list from backend fields when specific array not provided
+    const recentFromApi = Array.isArray(displayData.recentHealings)
+      ? displayData.recentHealings
+      : ([
+          ...(Array.isArray(displayData.recentSuccesses) ? displayData.recentSuccesses.map((r:any) => ({
+            id: r.id || `${r.testId || 't'}-success-${r.timestamp || Date.now()}`,
+            testName: r.testName || r.testId || 'Test',
+            failureType: r.failureType || 'unknown',
+            originalError: r.originalError || '',
+            healingStrategy: r.strategy || r.healingStrategy || 'unknown',
+            newSelector: r.newSelector || null,
+            status: 'success',
+            confidence: r.confidence ?? 0.75,
+            timestamp: r.timestamp || new Date().toISOString(),
+            healingTime: Math.round((r.healingTime || (displayData.averageHealingTime || 0)) / 100) / 10,
+          })) : []),
+          ...(Array.isArray(displayData.recentFailures) ? displayData.recentFailures.map((r:any) => ({
+            id: r.id || `${r.testId || 't'}-failed-${r.timestamp || Date.now()}`,
+            testName: r.testName || r.testId || 'Test',
+            failureType: r.failureType || 'unknown',
+            originalError: r.originalError || '',
+            healingStrategy: r.strategy || r.healingStrategy || 'unknown',
+            newSelector: r.newSelector || null,
+            status: 'failed',
+            confidence: r.confidence ?? 0.45,
+            timestamp: r.timestamp || new Date().toISOString(),
+            healingTime: Math.round((r.healingTime || (displayData.averageHealingTime || 0)) / 100) / 10,
+          })) : []),
+        ] as any[]).sort((a,b)=> new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0,20);
+
+    const failureTypes = displayData.failureTypes || (displayData.commonFailures ? 
+      Object.entries(displayData.commonFailures).map(([name, value]: any, index: number) => ({
+        name: String(name).replace(/-/g, ' ').replace(/\b\w/g, (l:any) => l.toUpperCase()),
+        value: Number(value),
+        color: ['#EF4444', '#F59E0B', '#3B82F6', '#8B5CF6', '#10B981'][index % 5]
+      })) : []);
+
+    return {
+      summary: {
+        totalAttempts: displayData.totalHealingAttempts || 0,
+        successfulHealings: displayData.successfulHealings || 0,
+        failedHealings: displayData.failedHealings || 0,
+        successRate: (displayData.healingSuccessRate || 0) * 100,
+        avgHealingTime: (displayData.averageHealingTime || 0) / 1000,
+        strategiesLearned: displayData.recentActivity?.newStrategiesLearned || 0
+      },
+      recentHealings: recentFromApi,
+      healingTrends: Array.isArray(displayData.healingTrends) ? displayData.healingTrends : [],
+      failureTypes,
+      topStrategies: Array.isArray(displayData.topStrategies) ? displayData.topStrategies : []
+    };
+  })();
 
   // Filter healings based on search and status
   const filteredHealings = (transformedData?.recentHealings || []).filter(healing => {
@@ -979,9 +1068,13 @@ export default function HealingCenter() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Max Healing Attempts
                       </label>
-                      <select className="w-full border border-gray-300 rounded-lg px-3 py-2">
+                      <select 
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                        value={maxAttempts}
+                        onChange={(e) => setMaxAttempts(e.target.value)}
+                      >
                         <option value="3">3 attempts</option>
-                        <option value="5" selected>5 attempts</option>
+                        <option value="5">5 attempts</option>
                         <option value="10">10 attempts</option>
                       </select>
                     </div>

@@ -94,7 +94,7 @@ class AutoLearningEngine {
       strategyModel.compile({
         optimizer: tf.train.adam(this.featureConfig.learningRate),
         loss: 'binaryCrossentropy',
-        metrics: ['accuracy', 'precision', 'recall']
+        metrics: ['accuracy']
       });
       
       await this.neuralService.createModel(this.strategyModelName, strategyModel, 'tensorflow');

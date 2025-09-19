@@ -50,6 +50,10 @@ class PlaywrightService {
     return browser;
   }
 
+  async launchBrowser(browserName = 'chromium', options = {}) {
+    return await this.getBrowser(browserName);
+  }
+
   async inspectPage(url, browserName = 'chromium') {
     const browser = await this.getBrowser(browserName);
     const context = await browser.newContext();
@@ -81,13 +85,60 @@ class PlaywrightService {
     const browserContext = await browser.newContext({
       viewport: context.viewport || { width: 1920, height: 1080 },
       userAgent: context.userAgent,
-      locale: context.language || 'en-US'
+      locale: context.language || 'en-US',
+      ignoreHTTPSErrors: true,
+      extraHTTPHeaders: context.headers || undefined,
     });
     const page = await browserContext.newPage();
 
+    // Allow configurable timeouts and wait strategies via context
+    const navTimeout = Number(context.navigationTimeout) || 45000;
+    const waitUntil = context.waitUntil || 'domcontentloaded';
+    const waitForNetworkIdle = context.waitForNetworkIdle !== false; // default true
+    const networkIdleTimeout = Number(context.networkIdleTimeout) || 10000;
+
+    page.setDefaultNavigationTimeout(navTimeout);
+
+    // Optionally block heavy resources to speed up/load simpler DOM
+    if (context.blockHeavy) {
+      await page.route('**/*', (route) => {
+        const type = route.request().resourceType();
+        if (type === 'image' || type === 'media' || type === 'font' || type === 'stylesheet') {
+          return route.abort();
+        }
+        return route.continue();
+      });
+    }
+
     try {
-      await page.goto(url, { waitUntil: 'networkidle' });
-      
+      // First attempt: more permissive waitUntil
+      await page.goto(url, { waitUntil, timeout: navTimeout });
+      if (waitForNetworkIdle) {
+        try {
+          await page.waitForLoadState('networkidle', { timeout: networkIdleTimeout });
+        } catch (_) {
+          // networkidle may not settle on some modern SPAs; proceed anyway
+        }
+      }
+
+      // Optional pre-consent clicks (cookie banners etc.)
+      if (Array.isArray(context.preClickSelectors)) {
+        for (const sel of context.preClickSelectors) {
+          try {
+            const loc = page.locator(sel).first();
+            await loc.waitFor({ state: 'visible', timeout: 1500 });
+            await loc.click({ timeout: 1500 });
+          } catch (_) {}
+        }
+      }
+
+      // Optional readiness gate: wait for a stable element to appear
+      if (context.readySelector) {
+        try {
+          await page.waitForSelector(context.readySelector, { state: 'visible', timeout: Math.min(navTimeout, 20000) });
+        } catch (_) {}
+      }
+
       const discoveries = {
         buttons: await this.discoverButtons(page),
         inputs: await this.discoverInputs(page),
@@ -97,13 +148,120 @@ class PlaywrightService {
         tables: await this.discoverTables(page),
         navigation: await this.discoverNavigation(page, context.viewport?.width <= 768),
         search: await this.discoverSearch(page),
-        notifications: await this.discoverNotifications(page)
+        notifications: await this.discoverNotifications(page),
+        jquery: await this.discoverJQueryComponents(page)
       };
 
       return discoveries;
+    } catch (err) {
+      // Retry once on navigation timeout with a different strategy
+      const isTimeout = err && (err.name === 'TimeoutError' || /Timeout/i.test(err.message || ''));
+      if (isTimeout) {
+        try {
+          await page.goto(url, { waitUntil: 'load', timeout: navTimeout + 15000 });
+          if (waitForNetworkIdle) {
+            try {
+              await page.waitForLoadState('networkidle', { timeout: networkIdleTimeout });
+            } catch (_) {}
+          }
+          if (Array.isArray(context.preClickSelectors)) {
+            for (const sel of context.preClickSelectors) {
+              try {
+                const loc = page.locator(sel).first();
+                await loc.waitFor({ state: 'visible', timeout: 1500 });
+                await loc.click({ timeout: 1500 });
+              } catch (_) {}
+            }
+          }
+          if (context.readySelector) {
+            try {
+              await page.waitForSelector(context.readySelector, { state: 'visible', timeout: Math.min(navTimeout, 20000) });
+            } catch (_) {}
+          }
+          const discoveries = {
+            buttons: await this.discoverButtons(page),
+            inputs: await this.discoverInputs(page),
+            links: await this.discoverLinks(page),
+            forms: await this.discoverForms(page),
+            modals: await this.discoverModals(page),
+            tables: await this.discoverTables(page),
+            navigation: await this.discoverNavigation(page, context.viewport?.width <= 768),
+            search: await this.discoverSearch(page),
+            notifications: await this.discoverNotifications(page),
+            jquery: await this.discoverJQueryComponents(page)
+          };
+          return discoveries;
+        } catch (retryErr) {
+          throw retryErr;
+        }
+      }
+      throw err;
     } finally {
       await browserContext.close();
     }
+  }
+
+  async discoverJQueryComponents(page) {
+    return await page.evaluate(() => {
+      const generateSelector = (element) => {
+        if (element.id) return `#${element.id}`;
+        if (element.className && typeof element.className === 'string') {
+          const classes = element.className.split(' ').filter(c => c && !c.match(/^\d/));
+          if (classes.length > 0) return `.${classes[0]}`;
+        }
+        const tagName = element.tagName.toLowerCase();
+        const parent = element.parentElement;
+        if (parent) {
+          const siblings = Array.from(parent.children).filter(el => el.tagName === element.tagName);
+          if (siblings.length > 1) {
+            const index = siblings.indexOf(element) + 1;
+            return `${tagName}:nth-of-type(${index})`;
+          }
+        }
+        return tagName;
+      };
+
+      const components = [];
+      const push = (type, el, extra = {}) => {
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        components.push({
+          type,
+          name: `${type}-${components.length}`,
+          locator: generateSelector(el),
+          description: `${type} (${el.tagName.toLowerCase()})`,
+          position: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          ...extra
+        });
+      };
+
+      // Detect presence/version
+      let jqueryVersion = null;
+      try { if (window.jQuery && window.jQuery.fn && window.jQuery.fn.jquery) { jqueryVersion = window.jQuery.fn.jquery; } } catch {}
+
+      // jQuery UI core widgets
+      document.querySelectorAll('.ui-accordion').forEach(el => push('jquery-ui-accordion', el));
+      document.querySelectorAll('.ui-tabs').forEach(el => push('jquery-ui-tabs', el));
+      document.querySelectorAll('.ui-dialog, [role="dialog"].ui-dialog-content').forEach(el => push('jquery-ui-dialog', el));
+      document.querySelectorAll('.ui-datepicker, .hasDatepicker, input.datepicker').forEach(el => push('jquery-ui-datepicker', el));
+      document.querySelectorAll('.ui-slider').forEach(el => push('jquery-ui-slider', el));
+      document.querySelectorAll('.ui-progressbar').forEach(el => push('jquery-ui-progressbar', el));
+      document.querySelectorAll('.ui-autocomplete, input[role="combobox"]').forEach(el => push('jquery-ui-autocomplete', el));
+      document.querySelectorAll('.ui-tooltip').forEach(el => push('jquery-ui-tooltip', el));
+      document.querySelectorAll('.ui-menu, .ui-selectmenu-menu').forEach(el => push('jquery-ui-menu', el));
+      document.querySelectorAll('.ui-draggable').forEach(el => push('jquery-ui-draggable', el));
+      document.querySelectorAll('.ui-droppable').forEach(el => push('jquery-ui-droppable', el));
+      document.querySelectorAll('.ui-sortable').forEach(el => push('jquery-ui-sortable', el));
+      document.querySelectorAll('.ui-resizable').forEach(el => push('jquery-ui-resizable', el));
+
+      // Common jQuery plugin patterns (Bootstrap 3 legacy data-api, etc.)
+      document.querySelectorAll('[data-toggle="modal"]').forEach(el => push('jquery-bs-modal-toggle', el));
+      document.querySelectorAll('[data-toggle="dropdown"], .dropdown-toggle').forEach(el => push('jquery-bs-dropdown-toggle', el));
+      document.querySelectorAll('[data-toggle="collapse"], .navbar-toggler').forEach(el => push('jquery-bs-collapse-toggle', el));
+      document.querySelectorAll('[data-slide], .carousel').forEach(el => push('jquery-bs-carousel', el));
+
+      return { version: jqueryVersion, components };
+    });
   }
 
   async extractElements(page) {

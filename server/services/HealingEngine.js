@@ -76,8 +76,10 @@ class HealingEngine {
       // Load historical data
       await this.loadHealingHistory();
       
-      // Seed sample data if no real data exists
-      await this.seedSampleDataIfNeeded();
+      // Seed sample data only if explicitly enabled
+      if (process.env.HEALING_SEED === 'true') {
+        await this.seedSampleDataIfNeeded();
+      }
       
       this.ready = true;
       console.log('✅ Enhanced AI Healing Engine ready with ML capabilities');

@@ -15,6 +15,7 @@ import Settings from './pages/Settings';
 import Collaboration from './pages/Collaboration';
 import CodegenRecorder from './components/CodegenRecorder';
 import AIHealingDashboard from './components/AIHealingDashboard';
+import POMConverter from './pages/POMConverter';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,6 +48,7 @@ function App() {
               <Route path="/collaboration" element={<Collaboration />} />
               <Route path="/settings" element={<Settings />} />
                   <Route path="/codegen" element={<CodegenRecorder />} />
+                  <Route path="/pom" element={<POMConverter />} />
                 </Routes>
               </main>
             </div>

@@ -35,7 +35,7 @@ const defaultConfig: PlaywrightConfig = {
   workers: undefined,
   reporter: 'html',
   timeout: 30000,
-  baseURL: 'http://localhost:5174',
+  baseURL: 'http://localhost:3001',
   headless: true,
   trace: 'on-first-retry',
   screenshot: 'only-on-failure',

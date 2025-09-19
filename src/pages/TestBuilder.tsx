@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { 
@@ -400,17 +400,25 @@ export default function TestBuilder() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           url: inspectionUrl,
-          browser: 'chromium',
+          browserName: 'chromium',
           context: { 
             viewport: { width: 1920, height: 1080 },
             enableVisualHighlighting: true,
             enableSmartSuggestions: true,
-            batchMode: batchMode
+            batchMode: batchMode,
+            // Navigation tuning for heavy SPAs
+            navigationTimeout: 60000,
+            waitUntil: 'domcontentloaded',
+            waitForNetworkIdle: false,
+            networkIdleTimeout: 8000
           }
         })
       });
 
-      if (!response.ok) throw new Error('Failed to inspect page');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to inspect page' }));
+        throw new Error(errorData.message || 'Failed to inspect page');
+      }
       
       const data = await response.json();
       setDiscoveredElements(data.elements || data);
@@ -428,8 +436,9 @@ export default function TestBuilder() {
       
       toast.success(`Page inspected successfully! Found ${Object.values(data.elements || data).flat().length} elements`);
     } catch (error) {
-      toast.error('Failed to inspect page');
-      console.error(error);
+      const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+      toast.error(errorMessage);
+      console.error('Inspection failed:', error);
     } finally {
       setIsInspecting(false);
     }

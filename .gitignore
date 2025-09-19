@@ -28,10 +28,7 @@ dist-ssr
 allure-results/
 allure-report/
 
-# Percy visual testing
-.percy/
-percy-debug.log
-percy-*.log
+
 
 # Visual testing artifacts
 test-results/

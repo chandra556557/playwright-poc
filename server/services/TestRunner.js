@@ -1,7 +1,9 @@
-import { promises as fs } from 'fs';
+import * as fs from 'fs';
+import { promises as fsp } from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { v4 as uuidv4 } from 'uuid';
+import { getDb } from './database.js';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -20,15 +22,13 @@ class TestRunner {
       console.log('🧪 Initializing Test Runner...');
       
       // Ensure data directory exists
-      await fs.mkdir(this.dataDir, { recursive: true });
-      await fs.mkdir(path.join(this.dataDir, 'test-suites'), { recursive: true });
-      await fs.mkdir(path.join(this.dataDir, 'executions'), { recursive: true });
+      await fsp.mkdir(this.dataDir, { recursive: true });
+      await fsp.mkdir(path.join(this.dataDir, 'test-suites'), { recursive: true });
+      await fsp.mkdir(path.join(this.dataDir, 'executions'), { recursive: true });
       
       // Load existing test suites
       await this.loadTestSuites();
       
-      // Load existing executions
-      await this.loadExecutions();
       
       this.ready = true;
       console.log('✅ Test Runner ready');
@@ -61,31 +61,22 @@ class TestRunner {
     }
   }
 
-  async loadExecutions() {
-    try {
-      const executionsDir = path.join(this.dataDir, 'executions');
-      const files = await fs.readdir(executionsDir);
-      
-      for (const file of files) {
-        if (file.endsWith('.json') && !file.endsWith('.spec.js')) {
-          const content = await fs.readFile(path.join(executionsDir, file), 'utf8');
-          const execution = JSON.parse(content);
-          this.executions.set(execution.id, execution);
-        }
-      }
-      
-      console.log(`📊 Loaded ${this.executions.size} executions`);
-    } catch (error) {
-      console.log('📊 No existing executions found, starting fresh');
-    }
-  }
 
   async getTestSuites() {
-    return Array.from(this.testSuites.values()).map(suite => ({
-      ...suite,
-      testCount: suite.tests?.length || 0,
-      lastRun: this.getLastExecution(suite.id)?.startTime || null
-    }));
+    const suites = Array.from(this.testSuites.values());
+    const results = [];
+    for (const suite of suites) {
+      let last = null;
+      try {
+        last = await this.getLastExecution(suite.id);
+      } catch {}
+      results.push({
+        ...suite,
+        testCount: suite.tests?.length || 0,
+        lastRun: last?.startTime || null
+      });
+    }
+    return results;
   }
 
   async createTestSuite(testSuiteData) {
@@ -156,6 +147,8 @@ class TestRunner {
     };
 
     this.executions.set(executionId, execution);
+  // Persist initial execution row (running)
+  try { await this.saveExecution(execution); } catch (_) {}
 
     try {
       // Update status
@@ -229,6 +222,84 @@ class TestRunner {
     return testFilePath;
   }
 
+  // Execute raw Playwright code provided by the client (ad-hoc run)
+  async runAdhocCode(code, options = {}, progressCallback) {
+    // Use the provided progressCallback or fall back to options.progressCallback
+    progressCallback = progressCallback || (options && options.progressCallback);
+    const { progressCallback: _, ...otherOptions } = options || {};
+    const executionId = uuidv4();
+    const execution = {
+      id: executionId,
+      testSuiteId: null,
+      startTime: new Date().toISOString(),
+      status: 'running',
+      options,
+      results: [],
+      summary: { total: 1, passed: 0, failed: 0, skipped: 0, healing: 0 },
+      healingActions: [],
+      screenshots: [],
+      logs: []
+    };
+    this.executions.set(executionId, execution);
+    
+    // Ensure required directories exist
+    await fs.mkdir(path.join(this.dataDir, 'executions'), { recursive: true });
+    
+    try { 
+      await this.saveExecution(execution); 
+    } catch (error) {
+      console.error('Error saving execution:', error);
+      throw error;
+    }
+
+    // Write the incoming code to a temp spec file
+    const executionsDir = path.join(this.dataDir, 'executions');
+    await fs.mkdir(executionsDir, { recursive: true });
+    const specPath = path.join(executionsDir, `${executionId}.spec.js`);
+    await fs.writeFile(specPath, code);
+
+    try {
+      // Ensure progressCallback is a function
+      const safeProgressCallback = (update) => {
+        if (typeof progressCallback === 'function') {
+          try {
+            progressCallback(update);
+          } catch (e) {
+            console.error('Error in progress callback:', e);
+          }
+        }
+      };
+
+      safeProgressCallback({ executionId, status: 'running', message: 'Starting ad-hoc test...', progress: 0 });
+
+      // Pass the safe callback to executePlaywrightTest
+      await this.executePlaywrightTest(specPath, execution, safeProgressCallback);
+
+      execution.endTime = new Date().toISOString();
+      execution.duration = new Date(execution.endTime) - new Date(execution.startTime);
+      execution.status = execution.summary.failed > 0 ? 'failed' : 'passed';
+      await this.saveExecution(execution);
+
+      safeProgressCallback({ 
+        executionId, 
+        status: execution.status, 
+        message: 'Ad-hoc test completed', 
+        progress: 100, 
+        summary: execution.summary 
+      });
+    } catch (error) {
+      execution.status = 'error';
+      execution.error = error.message;
+      execution.endTime = new Date().toISOString();
+      await this.saveExecution(execution);
+
+      progressCallback?.({ executionId, status: 'error', message: `Ad-hoc test failed: ${error.message}`, error: error.message });
+      throw error;
+    }
+
+    return executionId;
+  }
+
   generateTestContent(testSuite, execution) {
     const { tests } = testSuite;
     
@@ -236,29 +307,99 @@ class TestRunner {
 const { test, expect, Page, BrowserContext } = require('@playwright/test');
 const fs = require('fs');
 const path = require('path');
+const axios = require('axios');
+
+// Suite context for selector vault operations
+const SUITE_URL = '${tests?.[0]?.url || ''}';
+const SUITE_ID = '${testSuite.id || ''}';
 
 // Self-healing utilities
 class SelfHealingPage {
   constructor(page) {
     this.page = page;
     this.healingActions = [];
+    this.persisted = {};
+  }
+
+  async loadPersisted(url, suiteId) {
+    try {
+      const params = new URLSearchParams({ url });
+      if (suiteId) params.append('suiteId', suiteId);
+      const { data } = await axios.get('http://localhost:3001/api/ai/elements?' + params.toString());
+      const map = {};
+      (data.elements || []).forEach(el => { map[el.name] = el; });
+      this.persisted = map;
+    } catch (e) {
+      this.persisted = {};
+    }
+  }
+
+  buildCandidates(strategyName, strategies) {
+    const persisted = this.persisted[strategyName];
+    const ordered = [];
+    if (persisted) {
+      ordered.push(
+        persisted.locator,
+        ...(persisted.aiSelectors || []),
+        ...(persisted.selectors || []),
+        ...(persisted.fallbackSelectors || [])
+      );
+    }
+    // Also include incoming strategy.locator(s)
+    (strategies || []).forEach(s => { if (s.locator) ordered.push(s.locator); });
+    // Deduplicate
+    const seen = new Set();
+    return ordered.filter(s => s && !seen.has(s) && seen.add(s));
+  }
+
+  async persistWorkingSelector(strategyName, workingLocator, url, suiteId) {
+    try {
+      if (!strategyName || !workingLocator || !url) return;
+      const existing = this.persisted[strategyName] || {};
+      // Build selectors with the working one first
+      const mergedSelectors = [
+        workingLocator,
+        existing.locator,
+        ...(existing.aiSelectors || []),
+        ...(existing.selectors || []),
+        ...(existing.fallbackSelectors || [])
+      ].filter(Boolean);
+      const seen = new Set();
+      const unique = mergedSelectors.filter(s => !seen.has(s) && seen.add(s));
+      const body = {
+        suiteId: suiteId || null,
+        url,
+        elements: [
+          {
+            name: strategyName,
+            locator: workingLocator,
+            selectors: unique,
+            aiSelectors: existing.aiSelectors || [],
+            fallbackSelectors: existing.fallbackSelectors || [],
+            metadata: existing.metadata || {}
+          }
+        ]
+      };
+      await axios.post('http://localhost:3001/api/ai/elements/save', body, { timeout: 5000 });
+      // Update local cache so subsequent steps benefit immediately
+      this.persisted[strategyName] = Object.assign({}, existing, { locator: workingLocator, selectors: unique });
+    } catch (e) {
+      // Non-fatal: log and continue
+      console.log('ℹ️ Persist selector failed: ' + (e && e.message ? e.message : String(e)));
+    }
   }
 
   async intelligentClick(strategies, options = {}) {
     const maxRetries = options.maxRetries || 3;
     const timeout = options.timeout || 10000;
+    const strategyName = (strategies && strategies[0] && strategies[0].name) || undefined;
+    const candidates = this.buildCandidates(strategyName, strategies);
     
     for (let retry = 0; retry <= maxRetries; retry++) {
-      for (const strategy of strategies) {
+      for (const cand of candidates) {
         try {
-          console.log(\`🎯 Attempting: \${strategy.name} - \${strategy.description}\`);
-          
-          let locator;
-          if (typeof strategy.locator === 'string') {
-            locator = this.page.locator(strategy.locator);
-          } else {
-            locator = strategy.locator(this.page);
-          }
+          console.log('🎯 Attempting locator: ' + cand);
+          const locator = this.page.locator(cand);
 
           await locator.waitFor({ timeout: 5000 });
           await locator.click(options);
@@ -266,17 +407,21 @@ class SelfHealingPage {
           // Record successful strategy
           this.healingActions.push({
             type: 'click',
-            strategy: strategy.name,
+            strategy: strategyName || 'inline',
             success: true,
             timestamp: new Date().toISOString()
           });
           
+          // Persist the working selector for future runs
+          try {
+            await this.persistWorkingSelector(strategyName, cand, SUITE_URL, SUITE_ID);
+          } catch (e) {}
           return { success: true, usedStrategy: strategy };
         } catch (error) {
-          console.log(\`❌ \${strategy.name} failed: \${error.message}\`);
+          console.log('❌ locator failed: ' + error.message);
           this.healingActions.push({
             type: 'click',
-            strategy: strategy.name,
+            strategy: strategyName || 'inline',
             success: false,
             error: error.message,
             timestamp: new Date().toISOString()
@@ -285,7 +430,7 @@ class SelfHealingPage {
       }
       
       if (retry < maxRetries) {
-        console.log(\`🔄 Retry attempt \${retry + 1}/\${maxRetries}\`);
+        console.log('🔄 Retry attempt ' + (retry + 1) + '/' + maxRetries);
         await this.page.waitForTimeout(1000);
       }
     }
@@ -294,16 +439,12 @@ class SelfHealingPage {
   }
 
   async intelligentFill(strategies, value, options = {}) {
-    for (const strategy of strategies) {
+    const strategyName = (strategies && strategies[0] && strategies[0].name) || undefined;
+    const candidates = this.buildCandidates(strategyName, strategies);
+    for (const cand of candidates) {
       try {
-        console.log(\`📝 Trying fill strategy: \${strategy.name}\`);
-        
-        let locator;
-        if (typeof strategy.locator === 'string') {
-          locator = this.page.locator(strategy.locator);
-        } else {
-          locator = strategy.locator(this.page);
-        }
+        console.log('📝 Trying fill locator: ' + cand);
+        const locator = this.page.locator(cand);
 
         await locator.waitFor({ timeout: 5000 });
         await locator.clear();
@@ -314,18 +455,21 @@ class SelfHealingPage {
         if (actualValue === value) {
           this.healingActions.push({
             type: 'fill',
-            strategy: strategy.name,
+            strategy: strategyName || 'inline',
             success: true,
             value,
             timestamp: new Date().toISOString()
           });
+          try {
+            await this.persistWorkingSelector(strategyName, cand, SUITE_URL, SUITE_ID);
+          } catch (e) {}
           return { success: true, usedStrategy: strategy };
         }
       } catch (error) {
-        console.log(\`❌ Fill strategy \${strategy.name} failed: \${error.message}\`);
+        console.log('❌ Fill locator failed: ' + error.message);
         this.healingActions.push({
           type: 'fill',
-          strategy: strategy.name,
+          strategy: strategyName || 'inline',
           success: false,
           error: error.message,
           timestamp: new Date().toISOString()
@@ -346,6 +490,9 @@ test.describe('${testSuite.name}', () => {
 
   test.beforeEach(async ({ page }) => {
     healingPage = new SelfHealingPage(page);
+    try {
+      await healingPage.loadPersisted('${testSuite.tests?.[0]?.url || ''}', '${testSuite.id || ''}');
+    } catch {}
   });
 
 `;
@@ -475,37 +622,81 @@ test.describe('${testSuite.name}', () => {
 
   async executePlaywrightTest(testFilePath, execution, progressCallback) {
     return new Promise((resolve, reject) => {
-      const playwrightProcess = spawn('npx', ['playwright', 'test', testFilePath, '--reporter=json,allure-playwright'], {
+      // Verify test file exists using fs.existsSync
+      if (!fs.existsSync(testFilePath)) {
+        const errorMsg = `Test file not found: ${testFilePath}`;
+        console.error(errorMsg);
+        return reject(new Error(errorMsg));
+      }
+
+      // Verify Playwright is installed
+      try {
+        require.resolve('@playwright/test');
+      } catch (e) {
+        const error = new Error('Playwright is not installed. Please run: npm install @playwright/test');
+        console.error(error.message);
+        return reject(error);
+      }
+
+      const args = [
+        'playwright',
+        'test',
+        testFilePath,
+        '--reporter=json,allure-playwright',
+        '--timeout=30000'  // Add a timeout to prevent hanging
+      ];
+
+      console.log(`Executing: npx ${args.join(' ')}`);
+      
+      const playwrightProcess = spawn('npx', args, {
         cwd: process.cwd(),
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: true  // Use shell for better Windows compatibility
       });
 
       let stdout = '';
       let stderr = '';
+      let hasError = false;
+
+      const updateProgress = (message, isError = false) => {
+        if (isError) hasError = true;
+        if (typeof progressCallback === 'function') {
+          try {
+            progressCallback({
+              executionId: execution.id,
+              status: isError ? 'error' : 'running',
+              message: message ? String(message).trim() : '',
+              progress: isError ? 100 : Math.min(90, (execution.results.length / (execution.summary.total || 1)) * 100)
+            });
+          } catch (e) {
+            console.error('Error in progress callback:', e);
+          }
+        }
+      };
 
       playwrightProcess.stdout.on('data', (data) => {
-        stdout += data.toString();
+        const output = data.toString();
+        console.log(`[Playwright] ${output}`);
+        stdout += output;
         
         // Parse progress if possible
         try {
-          const lines = data.toString().split('\n');
+          const lines = output.split('\n');
           lines.forEach(line => {
             if (line.includes('Running') || line.includes('✅') || line.includes('❌')) {
-              progressCallback?.({
-                executionId: execution.id,
-                status: 'running',
-                message: line.trim(),
-                progress: Math.min(90, (execution.results.length / execution.summary.total) * 100)
-              });
+              updateProgress(line);
             }
           });
         } catch (e) {
-          // Ignore parsing errors
+          console.error('Error parsing progress:', e);
         }
       });
 
       playwrightProcess.stderr.on('data', (data) => {
-        stderr += data.toString();
+        const errorOutput = data.toString();
+        console.error(`[Playwright Error] ${errorOutput}`);
+        stderr += errorOutput;
+        updateProgress(`Error: ${errorOutput}`, true);
       });
 
       playwrightProcess.on('close', async (code) => {
@@ -518,6 +709,8 @@ test.describe('${testSuite.name}', () => {
           
           // Generate Allure report after test execution
           await this.generateAllureReport(execution.id);
+          // Attach report URL for UI consumption
+          execution.reportUrl = `/allure-report/${execution.id}/index.html`;
           
           resolve();
         } catch (error) {
@@ -620,15 +813,48 @@ test.describe('${testSuite.name}', () => {
   }
 
   async getExecution(executionId) {
-    return this.executions.get(executionId);
+    try {
+      const db = getDb();
+      const execution = await db.get('SELECT * FROM executions WHERE id = ?', executionId);
+      if (execution) {
+        return {
+          ...execution,
+          options: JSON.parse(execution.options || '{}'),
+          summary: JSON.parse(execution.summary || '{}')
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching execution from database:', error);
+      // Fallback to in-memory execution
+      const execution = this.executions.get(executionId);
+      if (execution) {
+        return {
+          ...execution,
+          options: execution.options || {},
+          summary: execution.summary || {}
+        };
+      }
+      return null;
+    }
   }
 
-  getLastExecution(testSuiteId) {
-    const executions = Array.from(this.executions.values())
-      .filter(exec => exec.testSuiteId === testSuiteId)
-      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-    
-    return executions[0] || null;
+  async getLastExecution(testSuiteId) {
+    try {
+      const db = getDb();
+      const execution = await db.get('SELECT * FROM executions WHERE suite_id = ? ORDER BY startTime DESC LIMIT 1', testSuiteId);
+      if (execution) {
+        return {
+          ...execution,
+          options: JSON.parse(execution.options || '{}'),
+          summary: JSON.parse(execution.summary || '{}')
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching last execution:', error);
+      return null;
+    }
   }
 
   async getTestSuite(testSuiteId) {
@@ -674,9 +900,58 @@ test.describe('${testSuite.name}', () => {
   }
 
   async getExecutions() {
-    return Array.from(this.executions.values()).sort((a, b) => 
-      new Date(b.startTime) - new Date(a.startTime)
-    );
+    try {
+      const db = getDb();
+      const rows = await db.all('SELECT * FROM executions ORDER BY startTime DESC');
+      return rows.map(row => ({
+        ...row,
+        summary: JSON.parse(row.summary || '{}'),
+        options: JSON.parse(row.options || '{}')
+      }));
+    } catch (error) {
+      console.error('Error fetching executions:', error);
+      // Return in-memory executions as fallback
+      return Array.from(this.executions.values()).map(execution => ({
+        ...execution,
+        summary: execution.summary || {},
+        options: execution.options || {}
+      }));
+    }
+  }
+
+  // Persist or update an execution row
+  async saveExecution(execution) {
+    try {
+      const db = getDb();
+      const summaryJson = JSON.stringify(execution.summary || {});
+
+      await db.run(
+        `INSERT INTO executions (id, suite_id, status, startTime, endTime, duration, summary, reportUrl)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           status = excluded.status,
+           endTime = excluded.endTime,
+           duration = excluded.duration,
+           summary = excluded.summary,
+           reportUrl = excluded.reportUrl`,
+        [
+          execution.id,
+          execution.testSuiteId || null,
+          execution.status,
+          execution.startTime,
+          execution.endTime || null,
+          execution.duration || null,
+          summaryJson,
+          execution.reportUrl || null,
+        ]
+      );
+      return;
+    } catch (error) {
+      console.error('Database error in saveExecution:', error);
+      // If database is not available, just log and continue
+      console.log('Continuing without database persistence...');
+      return;
+    }
   }
 
   async stopExecution(executionId) {
@@ -815,10 +1090,6 @@ test.describe('${testSuite.name}', () => {
     return execution;
   }
 
-  async saveExecution(execution) {
-    const filePath = path.join(this.dataDir, 'executions', `${execution.id}.json`);
-    await fs.writeFile(filePath, JSON.stringify(execution, null, 2));
-  }
 
   async deleteTestSuite(id) {
     this.testSuites.delete(id);
@@ -832,12 +1103,12 @@ test.describe('${testSuite.name}', () => {
   }
 
   async getExecutionHistory(testSuiteId, limit = 10) {
-    const executions = Array.from(this.executions.values())
-      .filter(exec => !testSuiteId || exec.testSuiteId === testSuiteId)
-      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
-      .slice(0, limit);
-    
-    return executions;
+    const db = getDb();
+    if (testSuiteId) {
+      return await db.all('SELECT * FROM executions WHERE suite_id = ? ORDER BY startTime DESC LIMIT ?', [testSuiteId, limit]);
+    } else {
+      return await db.all('SELECT * FROM executions ORDER BY startTime DESC LIMIT ?', limit);
+    }
   }
 
   // Create execution with custom configuration
@@ -1014,6 +1285,7 @@ test.describe('${testSuite.name}', () => {
           // Generate Allure report after test execution
           try {
             await this.generateAllureReport(execution.id);
+            execution.reportUrl = `/allure-report/${execution.id}/index.html`;
           } catch (allureError) {
             console.warn('Failed to generate Allure report:', allureError.message);
           }

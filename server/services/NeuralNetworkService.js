@@ -62,6 +62,32 @@ class NeuralNetworkService {
   }
 
   /**
+   * Create a new model with the specified type
+   * @param {string} modelName - Name of the model
+   * @param {Object} model - The model instance (TensorFlow or Brain.js)
+   * @param {string} type - Type of model ('tensorflow' or 'brain')
+   * @param {Object} config - Model configuration
+   */
+  async createModel(modelName, model, type, config = {}) {
+    try {
+      if (type === 'tensorflow') {
+        this.tfModels.set(modelName, model);
+        this.modelConfigs.set(modelName, { ...this.defaultTfConfig, ...config, type: 'tensorflow' });
+        console.log(`Model '${modelName}' created successfully`);
+      } else if (type === 'brain') {
+        this.brainNetworks.set(modelName, model);
+        this.modelConfigs.set(modelName, { ...this.defaultBrainConfig, ...config, type: 'brain' });
+        console.log(`Created Brain.js network: ${modelName}`);
+      } else {
+        throw new Error(`Unsupported model type: ${type}`);
+      }
+    } catch (error) {
+      console.error(`Error creating model ${modelName}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Create a Brain.js neural network
    */
   createBrainNetwork(modelName, config = {}) {
@@ -471,6 +497,46 @@ class NeuralNetworkService {
       totalModels: this.modelConfigs.size,
       tfMemory: tf.memory()
     };
+  }
+
+  /**
+   * Get memory usage (alias for compatibility)
+   */
+  getMemoryUsage() {
+    return this.getMemoryStats();
+  }
+
+  /**
+   * Get model info (alias for compatibility)
+   */
+  getModelInfoCompat(modelName) {
+    return this.getModelInfo(modelName);
+  }
+
+  /**
+   * Save model (unified interface)
+   */
+  async saveModel(modelName, type) {
+    if (type === 'brain') {
+      return await this.saveBrainModel(modelName);
+    } else if (type === 'tensorflow') {
+      return await this.saveTensorFlowModel(modelName);
+    } else {
+      throw new Error(`Unsupported model type: ${type}`);
+    }
+  }
+
+  /**
+   * Load model (unified interface)
+   */
+  async loadModel(modelName, type) {
+    if (type === 'brain') {
+      return await this.loadBrainModel(modelName);
+    } else if (type === 'tensorflow') {
+      return await this.loadTensorFlowModel(modelName);
+    } else {
+      throw new Error(`Unsupported model type: ${type}`);
+    }
   }
 
   /**

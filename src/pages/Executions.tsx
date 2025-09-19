@@ -17,8 +17,23 @@ import {
 } from 'lucide-react';
 import AllureReportModal from '../components/AllureReportModal';
 
+type ExecutionItem = {
+  id: string;
+  testSuiteId: string;
+  testSuiteName: string;
+  status: string;
+  startTime: string;
+  endTime: string | null;
+  duration: number | null;
+  progress: number;
+  summary: { total: number; passed: number; failed: number; skipped: number; healing: number };
+  browser: string;
+  environment: string;
+  reportUrl?: string | null;
+};
+
 // Mock data for demonstration
-const mockExecutions = [
+const mockExecutions: ExecutionItem[] = [
   {
     id: 'exec-1',
     testSuiteId: 'suite-1',
@@ -36,7 +51,8 @@ const mockExecutions = [
       healing: 2
     },
     browser: 'chromium',
-    environment: 'staging'
+    environment: 'staging',
+    reportUrl: null
   },
   {
     id: 'exec-2',
@@ -55,7 +71,8 @@ const mockExecutions = [
       healing: 1
     },
     browser: 'firefox',
-    environment: 'production'
+    environment: 'production',
+    reportUrl: '/allure-report/exec-2/index.html'
   },
   {
     id: 'exec-3',
@@ -74,7 +91,8 @@ const mockExecutions = [
       healing: 4
     },
     browser: 'webkit',
-    environment: 'staging'
+    environment: 'staging',
+    reportUrl: null
   },
   {
     id: 'exec-4',
@@ -93,7 +111,8 @@ const mockExecutions = [
       healing: 1
     },
     browser: 'chromium',
-    environment: 'development'
+    environment: 'development',
+    reportUrl: null
   }
 ];
 
@@ -108,7 +127,24 @@ export default function Executions() {
       if (!response.ok) {
         throw new Error('Failed to fetch executions');
       }
-      return response.json();
+      const data = await response.json();
+      // Normalize backend rows to UI-friendly shape
+      // Backend returns: id, suite_id, status, startTime, endTime, duration, summary(JSON), reportUrl
+      // UI expects: testSuiteName, browser, environment, progress, etc. We'll compute sane defaults.
+      return (Array.isArray(data) ? data : []).map((e: any): ExecutionItem => ({
+        id: e.id,
+        testSuiteId: e.suite_id,
+        testSuiteName: e.testSuite?.name || e.suite_id || 'Test Suite',
+        status: e.status,
+        startTime: e.startTime,
+        endTime: e.endTime || null,
+        duration: e.duration || null,
+        progress: e.status === 'running' ? 50 : 100,
+        summary: (() => { try { return typeof e.summary === 'string' ? JSON.parse(e.summary) : (e.summary || {}); } catch { return {}; } })(),
+        browser: e.browser || 'chromium',
+        environment: e.environment || 'default',
+        reportUrl: e.reportUrl || null,
+      }));
     },
     refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
   });
@@ -269,7 +305,28 @@ export default function Executions() {
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(execution.status)}`}>
                   {execution.status}
                 </span>
-
+                {/* Compact Allure link acts like a column/indicator */}
+                {execution.reportUrl ? (
+                  <a
+                    href={execution.reportUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded hover:bg-green-100 transition"
+                    title="Open Allure Report"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-1" />
+                    <span className="text-xs font-medium">Allure</span>
+                  </a>
+                ) : (
+                  <button
+                    onClick={() => handleViewAllureReport(execution.id)}
+                    className="inline-flex items-center px-2 py-1 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded hover:bg-indigo-100 transition"
+                    title="Generate/Preview Allure Report"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-1" />
+                    <span className="text-xs font-medium">Allure</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -342,13 +399,26 @@ export default function Executions() {
               </div>
               
               <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => handleViewAllureReport(execution.id)}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  View Allure Report
-                </button>
+                {execution.reportUrl ? (
+                  <a
+                    href={execution.reportUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    title="Open Allure report in a new tab"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Open Allure Report
+                  </a>
+                ) : (
+                  <button 
+                    onClick={() => handleViewAllureReport(execution.id)}
+                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    Generate/Preview Allure
+                  </button>
+                )}
               </div>
             </div>
           </div>

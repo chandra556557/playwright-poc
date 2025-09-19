@@ -1,0 +1,40 @@
+{
+  "name": "ai-element-inspector",
+  "version": "1.0.0",
+  "description": "AI-powered element inspector for Playwright with self-healing capabilities",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node test/test-runner.js",
+    "docs": "node scripts/generate-docs.js"
+  },
+  "keywords": [
+    "playwright",
+    "ai",
+    "element-inspector",
+    "self-healing",
+    "test-automation",
+    "web-testing"
+  ],
+  "author": "AI Element Inspector Team",
+  "license": "MIT",
+  "dependencies": {
+    "compression": "^1.8.1",
+    "cors": "^2.8.5",
+    "crypto-js": "^4.2.0",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "lodash": "^4.17.21",
+    "playwright": "^1.55.0",
+    "rate-limiter-flexible": "^7.3.1",
+    "redis": "^5.8.2",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
+    "uuid": "^13.0.0",
+    "winston": "^3.17.0"
+  }
+}

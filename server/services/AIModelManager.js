@@ -14,8 +14,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 class AIModelManager {
-  constructor() {
-    this.neuralService = new NeuralNetworkService();
+  constructor(neuralService = null) {
+    this.neuralService = neuralService || new NeuralNetworkService();
     this.modelsDir = path.join(__dirname, '../data/ai_models');
     this.configDir = path.join(__dirname, '../data/model_configs');
     
@@ -454,6 +454,145 @@ class AIModelManager {
       return JSON.parse(data);
     } catch (error) {
       return null;
+    }
+  }
+
+  // Get all registered models
+  getRegisteredModels() {
+    const models = [];
+    for (const [name, config] of this.modelRegistry) {
+      models.push({
+        name,
+        type: config.type,
+        isActive: this.neuralService.isModelActive ? this.neuralService.isModelActive(name) : false,
+        config
+      });
+    }
+    return models;
+  }
+
+  // Get model status
+  async getModelStatus(modelName) {
+    const config = this.modelRegistry.get(modelName);
+    if (!config) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    return {
+      name: modelName,
+      type: config.type,
+      isActive: this.neuralService.isModelActive ? this.neuralService.isModelActive(modelName) : false,
+      isTraining: this.isTraining,
+      config,
+      lastTrained: config.lastTrained || null,
+      trainingSessions: config.trainingSessions || 0,
+      predictions: config.predictions || 0
+    };
+  }
+
+  // Get model configuration
+  async getModelConfig(modelName) {
+    const config = this.modelRegistry.get(modelName);
+    if (!config) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+    return config;
+  }
+
+  // Update model configuration
+  async updateModelConfig(modelName, newConfig) {
+    const existingConfig = this.modelRegistry.get(modelName);
+    if (!existingConfig) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    const updatedConfig = { ...existingConfig, ...newConfig };
+    this.modelRegistry.set(modelName, updatedConfig);
+    
+    // Save updated config
+    await this.saveModelConfig(modelName, updatedConfig);
+  }
+
+  // Get training history
+  async getTrainingHistory(modelName) {
+    const config = this.modelRegistry.get(modelName);
+    if (!config) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    return {
+      modelName,
+      trainingSessions: config.trainingSessions || 0,
+      lastTrained: config.lastTrained || null,
+      history: config.trainingHistory || []
+    };
+  }
+
+  // Export model
+  async exportModel(modelName, format = 'json') {
+    const config = this.modelRegistry.get(modelName);
+    if (!config) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    const modelData = {
+      name: modelName,
+      config,
+      type: config.type,
+      exportedAt: new Date().toISOString()
+    };
+
+    if (format === 'json') {
+      return modelData;
+    } else {
+      throw new Error(`Unsupported export format: ${format}`);
+    }
+  }
+
+  // Import model
+  async importModel(modelName, modelData, format = 'json') {
+    if (format !== 'json') {
+      throw new Error(`Unsupported import format: ${format}`);
+    }
+
+    this.modelRegistry.set(modelName, modelData.config);
+    await this.saveModelConfig(modelName, modelData.config);
+    
+    return {
+      modelName,
+      imported: true,
+      importedAt: new Date().toISOString()
+    };
+  }
+
+  // Delete model
+  async deleteModel(modelName) {
+    if (!this.modelRegistry.has(modelName)) {
+      throw new Error(`Model ${modelName} not found`);
+    }
+
+    this.modelRegistry.delete(modelName);
+    
+    // Remove config file
+    try {
+      const configPath = path.join(this.configDir, `${modelName}.json`);
+      await fs.unlink(configPath);
+    } catch (error) {
+      console.warn(`Could not delete config file for ${modelName}:`, error.message);
+    }
+
+    return { modelName, deleted: true };
+  }
+
+  // Save model configuration
+  async saveModelConfig(modelName, config) {
+    try {
+      await fs.mkdir(this.configDir, { recursive: true });
+      const configPath = path.join(this.configDir, `${modelName}.json`);
+      await fs.writeFile(configPath, JSON.stringify(config, null, 2));
+    } catch (error) {
+      console.error(`Error saving model config for ${modelName}:`, error);
+      throw error;
     }
   }
 }

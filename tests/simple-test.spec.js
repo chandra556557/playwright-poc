@@ -4,7 +4,8 @@ test('simple test to check if playwright works', async ({ page }) => {
   console.log('Starting simple test...');
   
   try {
-    await page.goto('/');
+    // Test with external website instead of local server
+    await page.goto('https://example.com');
     console.log('Page loaded successfully');
     
     // Wait for page to load
@@ -15,11 +16,17 @@ test('simple test to check if playwright works', async ({ page }) => {
     const title = await page.title();
     console.log('Page title:', title);
     
+    // Verify we can interact with elements
+    const heading = await page.textContent('h1');
+    console.log('Page heading:', heading);
+    
     // Take a screenshot
     await page.screenshot({ path: 'test-results/simple-test.png' });
     console.log('Screenshot taken');
     
-    expect(title).toBeTruthy();
+    // Basic assertions
+    expect(title).toBe('Example Domain');
+    expect(heading).toBe('Example Domain');
     console.log('✅ Simple test passed!');
   } catch (error) {
     console.error('❌ Test failed:', error.message);

@@ -23,7 +23,7 @@ Our testing strategy includes multiple layers of testing to ensure code quality,
 - **Integration Tests**: Test API endpoints and service interactions
 - **End-to-End Tests**: Test complete user workflows
 - **Performance Tests**: Test application performance under load
-- **Visual Tests**: Test UI consistency and visual regressions
+
 
 ## 🧪 Test Types
 
@@ -51,11 +51,7 @@ Our testing strategy includes multiple layers of testing to ensure code quality,
 - **Purpose**: Test application performance under various load conditions
 - **Coverage**: Concurrent sessions, memory usage, response times
 
-### Visual Tests
-- **Framework**: Percy + Playwright
-- **Location**: Visual regression tests integrated with E2E tests
-- **Purpose**: Detect visual changes and UI regressions
-- **Coverage**: UI components, responsive design, cross-browser rendering
+
 
 ## 🚀 Getting Started
 
@@ -307,28 +303,7 @@ npm run test:load
 - Memory usage: < 100MB per session
 - Concurrent sessions: Support 10+ simultaneous users
 
-## 👁️ Visual Testing
 
-### Percy Integration
-
-```bash
-# Run visual tests
-npm run test:visual
-
-# Update visual baselines
-npm run test:visual:update
-
-# Debug visual differences
-npm run test:visual:debug
-```
-
-### Visual Test Coverage
-
-- Component library
-- Responsive design breakpoints
-- Cross-browser rendering
-- Dark/light theme variations
-- Error states and loading states
 
 ## 🔧 Troubleshooting
 
@@ -341,8 +316,7 @@ npm run test:visual:debug
 npm run clean
 npm install
 
-# Update snapshots
-npm run test:visual:update
+
 
 # Debug specific test
 npm run test:e2e:debug -- --grep "test name"
@@ -459,7 +433,7 @@ npm run allure:serve
 - [Vitest Documentation](https://vitest.dev/)
 - [Playwright Documentation](https://playwright.dev/)
 - [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/)
-- [Percy Visual Testing](https://percy.io/)
+
 - [Artillery Load Testing](https://artillery.io/)
 
 For questions or issues, please check the troubleshooting section or create an issue in the project repository.

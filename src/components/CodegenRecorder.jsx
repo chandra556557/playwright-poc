@@ -26,20 +26,91 @@ const CodegenRecorder = () => {
   const [showCodeEditor, setShowCodeEditor] = useState(false);
   const [editableCode, setEditableCode] = useState('');
   const [supportedLanguages, setSupportedLanguages] = useState([]);
+  const [pomClassName, setPomClassName] = useState('GeneratedPage');
+  const [pomConverting, setPomConverting] = useState(false);
+  const [pomResult, setPomResult] = useState(null);
   const [serviceStatus, setServiceStatus] = useState({ ready: false });
   const [wsConnected, setWsConnected] = useState(false);
   const [healingStats, setHealingStats] = useState(null);
+  // Run test state
+  const [currentRunId, setCurrentRunId] = useState(null);
+  const [runStatus, setRunStatus] = useState(null);
+  const [runProgress, setRunProgress] = useState(0);
+  const [runMessage, setRunMessage] = useState('');
+  const [runSummary, setRunSummary] = useState(null);
+  const [runReportUrl, setRunReportUrl] = useState(null);
   
   const wsRef = useRef(null);
   const codeEditorRef = useRef(null);
 
-  // Initialize WebSocket connection
+  // Run current code as a Playwright test via backend (top-level)
+  const runCurrentCode = async () => {
+    try {
+      const code = editableCode || generatedCode;
+      if (!code || code.trim().length === 0) return;
+      setRunStatus('starting');
+      setRunProgress(0);
+      setRunMessage('Submitting test to runner...');
+      setRunSummary(null);
+      setCurrentRunId(null);
+
+      // Try proxy first
+      let res = await fetch('/api/codegen/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, language: selectedLanguage })
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      if (!res.ok || data?.status !== 'success') {
+        // Fallback to direct backend
+        res = await fetch('http://localhost:3001/api/codegen/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, language: selectedLanguage })
+        });
+        data = await res.json();
+      }
+      if (res.ok && data?.status === 'success') {
+        setCurrentRunId(data.executionId);
+        setRunStatus('running');
+        setRunMessage('Test started...');
+        setRunReportUrl(null);
+      } else {
+        setRunStatus('error');
+        setRunMessage(data?.message || 'Failed to start test run');
+      }
+    } catch (e) {
+      setRunStatus('error');
+      setRunMessage(e.message || 'Run failed to start');
+    }
+  };
+
+  // On completion, fetch execution for reportUrl (top-level)
+  useEffect(() => {
+    const fetchExecution = async (id) => {
+      try {
+        let res = await fetch(`/api/executions/${id}`);
+        if (!res.ok) res = await fetch(`http://localhost:3001/api/executions/${id}`);
+        if (!res.ok) return;
+        const exec = await res.json();
+        if (exec?.reportUrl) setRunReportUrl(exec.reportUrl);
+      } catch {}
+    };
+    if (currentRunId && (runStatus === 'passed' || runStatus === 'failed' || runStatus === 'error')) {
+      fetchExecution(currentRunId);
+    }
+  }, [currentRunId, runStatus]);
+
+  // WebSocket connection and event handlers
   useEffect(() => {
     const connectWebSocket = () => {
-      // Use relative path for WebSocket to work with Vite proxy
+      // Use the same protocol and host as the current page
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/codegen`;
+      const host = window.location.host; // This includes the port if specified
+      const wsUrl = `${protocol}//${host}/codegen`;
       
+      console.log('Connecting to WebSocket:', wsUrl);
       wsRef.current = new WebSocket(wsUrl);
       
       wsRef.current.onopen = () => {
@@ -51,6 +122,14 @@ const CodegenRecorder = () => {
         try {
           const data = JSON.parse(event.data);
           handleWebSocketMessage(data);
+          if (data.type === 'testExecution') {
+            const upd = data.data || {};
+            if (!currentRunId || upd.executionId !== currentRunId) return;
+            setRunStatus(upd.status || 'running');
+            if (typeof upd.progress === 'number') setRunProgress(upd.progress);
+            if (upd.message) setRunMessage(upd.message);
+            if (upd.summary) setRunSummary(upd.summary);
+          }
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
@@ -79,7 +158,7 @@ const CodegenRecorder = () => {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [currentRunId]);
 
   // Load templates when language changes
   useEffect(() => {
@@ -451,6 +530,67 @@ const CodegenRecorder = () => {
     } catch (error) {
       console.error('Export error:', error);
     }
+  };
+
+  // Convert current code (edited or generated) to POM using backend
+  const convertToPOM = async () => {
+    try {
+      setPomConverting(true);
+      setPomResult(null);
+      const code = editableCode || generatedCode;
+      if (!code || code.trim().length === 0) return;
+      let res = await fetch('/api/pom/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code,
+          language: selectedLanguage === 'typescript' ? 'typescript' : 'javascript',
+          className: pomClassName,
+          testName: 'recorded-test'
+        })
+      });
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        // likely HTML (404 from frontend) — fall back
+      }
+      if (!res.ok || !data?.success) {
+        res = await fetch('http://localhost:3001/api/pom/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code,
+            language: selectedLanguage === 'typescript' ? 'typescript' : 'javascript',
+            className: pomClassName,
+            testName: 'recorded-test'
+          })
+        });
+        data = await res.json();
+      }
+      if (res.ok && data?.success) {
+        setPomResult(data);
+      } else {
+        console.error('POM conversion failed:', data?.error || 'Unknown error');
+      }
+    } catch (e) {
+      console.error('POM conversion error:', e);
+    } finally {
+      setPomConverting(false);
+    }
+  };
+
+  // Download helper for POM files
+  const downloadContent = (filename, content) => {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -836,6 +976,39 @@ const CodegenRecorder = () => {
                     <Edit3 className="w-4 h-4" />
                     <span>{showCodeEditor ? 'Preview' : 'Edit'}</span>
                   </button>
+                  <input
+                    type="text"
+                    value={pomClassName}
+                    onChange={(e) => setPomClassName(e.target.value)}
+                    placeholder="POM Class Name"
+                    title="POM Class Name"
+                    className="px-2 py-1 border rounded text-sm"
+                    style={{ minWidth: 140 }}
+                  />
+                  <button
+                    onClick={convertToPOM}
+                    disabled={pomConverting || !(editableCode || generatedCode)}
+                    className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-sm transition-colors ${
+                      pomConverting ? 'bg-indigo-200 text-indigo-700' : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                    title="Convert current code to Page Object Model"
+                  >
+                    <Code className="w-4 h-4" />
+                    <span>{pomConverting ? 'Converting...' : 'Convert to POM'}</span>
+                  </button>
+                  <button
+                    onClick={runCurrentCode}
+                    disabled={!(editableCode || generatedCode) || runStatus === 'running' || runStatus === 'starting'}
+                    className={`flex items-center space-x-2 px-3 py-1 rounded-lg text-sm transition-colors ${
+                      runStatus === 'running' || runStatus === 'starting'
+                        ? 'bg-green-200 text-green-800'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                    title="Execute this test via Playwright"
+                  >
+                    <Play className="w-4 h-4" />
+                    <span>{runStatus === 'running' || runStatus === 'starting' ? 'Running...' : 'Run Test'}</span>
+                  </button>
                   <button
                     id="copy-button"
                     onClick={copyCode}
@@ -863,15 +1036,95 @@ const CodegenRecorder = () => {
                     ref={codeEditorRef}
                     value={editableCode}
                     onChange={(e) => setEditableCode(e.target.value)}
-                    className="w-full h-96 p-4 font-mono text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Generated test code will appear here..."
+                    className="w-full h-96 font-mono text-sm border border-gray-200 rounded p-3"
                   />
                 ) : (
-                  <pre className="w-full h-96 p-4 font-mono text-sm bg-gray-50 border border-gray-300 rounded-lg overflow-auto">
-                    <code className="language-javascript">
-                      {editableCode || generatedCode || 'Generated test code will appear here...'}
-                    </code>
-                  </pre>
+                  <pre className="w-full h-96 overflow-auto bg-gray-50 border border-gray-200 rounded p-3 text-sm"><code>{editableCode || generatedCode || '// No code yet'}</code></pre>
+                )}
+
+                {/* Live Run Status Panel */}
+                {(runStatus || currentRunId) && (
+                  <div className="mt-4 p-4 border rounded bg-white">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2">
+                        <div className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          runStatus === 'passed' ? 'bg-green-100 text-green-800' :
+                          runStatus === 'failed' ? 'bg-red-100 text-red-800' :
+                          runStatus === 'error' ? 'bg-red-100 text-red-800' :
+                          runStatus === 'running' || runStatus === 'starting' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {runStatus || 'pending'}
+                        </div>
+                        {currentRunId && (
+                          <span className="text-xs text-gray-500">Run ID: {currentRunId.slice(0,8)}...</span>
+                        )}
+                      </div>
+                      {runReportUrl && (
+                        <a
+                          href={runReportUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-sm px-3 py-1 bg-gray-800 text-white rounded hover:bg-black"
+                        >
+                          Open Allure Report
+                        </a>
+                      )}
+                    </div>
+                    {(runStatus === 'running' || runStatus === 'starting') && (
+                      <div className="mb-2">
+                        <div className="w-full bg-gray-200 rounded h-2">
+                          <div className="h-2 rounded bg-blue-600 transition-all" style={{ width: `${Math.max(5, Math.min(95, runProgress || 5))}%` }} />
+                        </div>
+                      </div>
+                    )}
+                    {runMessage && <div className="text-sm text-gray-700">{runMessage}</div>}
+                    {runSummary && (
+                      <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+                        <div>
+                          <div className="text-xs text-gray-500">Total</div>
+                          <div className="text-sm font-semibold">{runSummary.total || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Passed</div>
+                          <div className="text-sm font-semibold text-green-600">{runSummary.passed || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Failed</div>
+                          <div className="text-sm font-semibold text-red-600">{runSummary.failed || 0}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Skipped</div>
+                          <div className="text-sm font-semibold text-gray-600">{runSummary.skipped || 0}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* POM Result Panel */}
+                {pomResult && (
+                  <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="border rounded p-3 bg-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900 text-sm">{pomResult.files?.pageObject?.fileName}</h3>
+                        <button
+                          className="text-xs bg-gray-800 text-white px-2 py-1 rounded"
+                          onClick={() => downloadContent(pomResult.files?.pageObject?.fileName, pomResult.files?.pageObject?.content)}
+                        >Download</button>
+                      </div>
+                      <pre className="bg-gray-50 rounded p-2 overflow-auto text-xs"><code>{pomResult.files?.pageObject?.content}</code></pre>
+                    </div>
+                    <div className="border rounded p-3 bg-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900 text-sm">{pomResult.files?.test?.fileName}</h3>
+                        <button
+                          className="text-xs bg-gray-800 text-white px-2 py-1 rounded"
+                          onClick={() => downloadContent(pomResult.files?.test?.fileName, pomResult.files?.test?.content)}
+                        >Download</button>
+                      </div>
+                      <pre className="bg-gray-50 rounded p-2 overflow-auto text-xs"><code>{pomResult.files?.test?.content}</code></pre>
+                    </div>
+                  </div>
                 )}
                 
                 {/* Language indicator */}

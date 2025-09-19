@@ -11,7 +11,8 @@ import {
   Bot,
   Video,
   Brain,
-  Users
+  Users,
+  FileText
 } from 'lucide-react';
 
 const navigation = [
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Test Suites', href: '/test-suites', icon: TestTube },
   { name: 'Test Builder', href: '/test-builder', icon: Plus },
   { name: 'Code Recorder', href: '/codegen', icon: Video },
+  { name: 'POM Converter', href: '/pom', icon: FileText },
   { name: 'Executions', href: '/executions', icon: Play },
   { name: 'Healing Center', href: '/healing', icon: Wrench },
   { name: 'AI Healing', href: '/ai-healing', icon: Brain },

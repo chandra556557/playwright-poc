@@ -1,0 +1,24 @@
+{
+  "basicFunctionality": {
+    "navigation": "working",
+    "elementInteraction": "working",
+    "error": "page.fill: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[name=\"custname\"]')\u001b[22m\n"
+  },
+  "codegenFeatures": {
+    "recording": "working",
+    "locatorGeneration": "working",
+    "codeExport": "working"
+  },
+  "healingCapabilities": {
+    "elementRecovery": "working",
+    "dynamicAdaptation": "failed",
+    "errorRecovery": "working"
+  },
+  "apiEndpoints": {
+    "error": "apiRequestContext.get: connect ECONNREFUSED ::1:3001\nCall log:\n\u001b[2m  - → GET http://localhost:3001/api/health\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: */*\u001b[22m\n\u001b[2m    - accept-encoding: gzip,deflate,br\u001b[22m\n"
+  },
+  "existingTests": {
+    "filesFound": 3,
+    "simpleTest": "failed"
+  }
+}

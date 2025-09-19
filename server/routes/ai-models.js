@@ -23,7 +23,7 @@ async function initializeServices() {
     await neuralNetworkService.initialize();
     
     aiModelManager = new AIModelManager(neuralNetworkService);
-    await aiModelManager.initialize();
+    await aiModelManager.init();
     
     console.log('AI model services initialized successfully');
   } catch (error) {
@@ -304,6 +304,211 @@ router.get('/training-data/stats', ensureInitialized, async (req, res) => {
   }
 });
 
+// Create a new model
+router.post('/models', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName, modelType, config = {} } = req.body;
+    
+    if (!modelName || !modelType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Model name and type are required'
+      });
+    }
+    
+    const result = await aiModelManager.createModel(modelName, modelType, config);
+    
+    res.json({
+      success: true,
+      modelName,
+      modelType,
+      result
+    });
+  } catch (error) {
+    console.error('Error creating model:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Delete a model
+router.delete('/models/:modelName', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName } = req.params;
+    
+    await aiModelManager.deleteModel(modelName);
+    
+    res.json({
+      success: true,
+      modelName,
+      message: 'Model deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting model:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get model configuration
+router.get('/models/:modelName/config', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName } = req.params;
+    const config = await aiModelManager.getModelConfig(modelName);
+    
+    res.json({
+      success: true,
+      modelName,
+      config
+    });
+  } catch (error) {
+    console.error('Error getting model config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Update model configuration
+router.put('/models/:modelName/config', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName } = req.params;
+    const { config } = req.body;
+    
+    if (!config) {
+      return res.status(400).json({
+        success: false,
+        error: 'Configuration must be provided'
+      });
+    }
+    
+    await aiModelManager.updateModelConfig(modelName, config);
+    
+    res.json({
+      success: true,
+      modelName,
+      message: 'Model configuration updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating model config:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get model training history
+router.get('/models/:modelName/history', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName } = req.params;
+    const history = await aiModelManager.getTrainingHistory(modelName);
+    
+    res.json({
+      success: true,
+      modelName,
+      history
+    });
+  } catch (error) {
+    console.error('Error getting training history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Export model
+router.get('/models/:modelName/export', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName } = req.params;
+    const { format = 'json' } = req.query;
+    
+    const exportData = await aiModelManager.exportModel(modelName, format);
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${modelName}.${format}"`);
+    res.json(exportData);
+  } catch (error) {
+    console.error('Error exporting model:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Import model
+router.post('/models/import', ensureInitialized, async (req, res) => {
+  try {
+    const { modelName, modelData, format = 'json' } = req.body;
+    
+    if (!modelName || !modelData) {
+      return res.status(400).json({
+        success: false,
+        error: 'Model name and data are required'
+      });
+    }
+    
+    const result = await aiModelManager.importModel(modelName, modelData, format);
+    
+    res.json({
+      success: true,
+      modelName,
+      result
+    });
+  } catch (error) {
+    console.error('Error importing model:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Get AI service statistics
+router.get('/stats', ensureInitialized, async (req, res) => {
+  try {
+    const stats = {
+      totalModels: aiModelManager.getRegisteredModels().length,
+      activeModels: 0,
+      totalTrainingSessions: 0,
+      totalPredictions: 0,
+      memoryUsage: process.memoryUsage(),
+      uptime: process.uptime()
+    };
+    
+    // Get additional stats from services
+    const models = aiModelManager.getRegisteredModels();
+    for (const model of models) {
+      try {
+        const status = await aiModelManager.getModelStatus(model.name);
+        if (status.isActive) stats.activeModels++;
+        if (status.trainingSessions) stats.totalTrainingSessions += status.trainingSessions;
+        if (status.predictions) stats.totalPredictions += status.predictions;
+      } catch (error) {
+        console.warn(`Error getting stats for model ${model.name}:`, error.message);
+      }
+    }
+    
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('Error getting AI service stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // Health check endpoint
 router.get('/health', (req, res) => {
   const health = {
@@ -312,7 +517,8 @@ router.get('/health', (req, res) => {
     services: {
       aiModelManager: !!aiModelManager,
       neuralNetworkService: !!neuralNetworkService
-    }
+    },
+    models: aiModelManager ? aiModelManager.getRegisteredModels().length : 0
   };
   
   res.json(health);

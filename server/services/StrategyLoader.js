@@ -2,6 +2,7 @@ import { promises as fs } from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import ESModuleLoader from './ESModuleLoader.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,7 @@ class StrategyLoader {
     this.strategiesPath = path.join(__dirname, '../../strategies');
     this.compiledStrategiesPath = path.join(__dirname, '../compiled-strategies');
     this.loadedStrategies = new Map();
+    this.moduleLoader = new ESModuleLoader();
   }
 
   /**
@@ -188,10 +190,14 @@ class StrategyLoader {
         try {
           const filePath = path.join(this.compiledStrategiesPath, file);
           
-          // Clear require cache to ensure fresh load
-          delete require.cache[require.resolve(filePath)];
-          
-          const strategyModule = require(filePath);
+          // Use ESModuleLoader for proper module loading
+          let strategyModule;
+          try {
+            strategyModule = await this.moduleLoader.loadStrategyModule(filePath);
+          } catch (error) {
+            console.warn(`Failed to load strategy ${file}:`, error.message);
+            continue;
+          }
           const strategyName = file.replace('.js', '');
           
           // Find the strategy class in the module

@@ -1,0 +1,26 @@
+{
+  "id": "6bdebb5c-9b91-4edc-9532-752cc0f2c60f",
+  "testSuiteId": "9ab238c9-3846-403b-ac0d-94cc27513324",
+  "startTime": "2025-09-19T02:25:38.991Z",
+  "status": "error",
+  "options": {},
+  "results": [],
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "healing": 0
+  },
+  "healingActions": [],
+  "screenshots": [],
+  "logs": [
+    {
+      "type": "stdout",
+      "content": "",
+      "timestamp": "2025-09-19T02:25:39.150Z"
+    }
+  ],
+  "error": "spawn npx ENOENT",
+  "endTime": "2025-09-19T02:25:39.146Z"
+}
